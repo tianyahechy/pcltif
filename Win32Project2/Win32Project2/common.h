@@ -170,3 +170,4 @@ struct Pt8BitAndID
 	int yID;
 	int value;
 };
+
