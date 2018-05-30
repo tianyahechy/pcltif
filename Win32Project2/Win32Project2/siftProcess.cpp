@@ -22,10 +22,6 @@ siftProcess::siftProcess(int xRoil, int yRoil, int widthRoil, int heightRoil,
 	_rasterID32bitVecForSift2.clear();
 	_corlinerPointVec1InOpenCV.clear();
 	_corlinerPointVec2InOpenCV.clear();
-	_siftPointVec1InOpenCV.clear();
-	_siftPointVec2InOpenCV.clear();
-	_siftPointVec1InPCL.clear();
-	_siftPointVec2InPCL.clear();
 	_colinerVectorInOpenCV.clear();
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
@@ -38,14 +34,6 @@ siftProcess::siftProcess(int xRoil, int yRoil, int widthRoil, int heightRoil,
 	if (_colinerCloud2)
 	{
 		_colinerCloud2->clear();
-	}
-	if (_siftOutCloud1)
-	{
-		_siftOutCloud1->clear();
-	}
-	if (_siftOutCloud2)
-	{
-		_siftOutCloud2->clear();
 	}
 	if (_segCloud1)
 	{
@@ -65,21 +53,11 @@ siftProcess::~siftProcess()
 	_rasterID32bitVecForSift2.clear();
 	_corlinerPointVec1InOpenCV.clear();
 	_corlinerPointVec2InOpenCV.clear();
-	_siftPointVec1InOpenCV.clear();
-	_siftPointVec2InOpenCV.clear();
 	_colinerVectorInOpenCV.clear();
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
 	_seg1Vector32bitForPCL.clear();
 	_seg2Vector32bitForPCL.clear();
-	if (_siftOutCloud1)
-	{
-		_siftOutCloud1->clear();
-	}
-	if (_siftOutCloud2)
-	{
-		_siftOutCloud2->clear();
-	}
 	if (_segCloud1)
 	{
 		_segCloud1->clear();
@@ -158,6 +136,7 @@ void siftProcess::processAll()
 	cv::equalizeHist(srcImage8BitForSift1, heqResult1);
 	cv::Mat heqResult2;
 	cv::equalizeHist(srcImage8BitForSift2, heqResult2);
+
 	//3，用opencv的sift算法提取出两幅图像的sift序列和内点序列（都是局部坐标序号）
 	//this->getSIFTFeatureFromOpenCVImage8bit(srcImage8BitForSift1, srcImage8BitForSift2);
 	this->getSIFTFeatureFromOpenCVImage8bit(heqResult1, heqResult2);
@@ -184,8 +163,6 @@ void siftProcess::processAll()
 	fclose(fp_cor_inliers_ptr);
 	
 	//6，将各个局部坐标序列转到三维坐标
-	_siftPointVec1InPCL = this->convertOpenCV2DVecToPCL3DVec(_siftPointVec1InOpenCV, _seg1Vector32bitForPCL);
-	_siftPointVec2InPCL = this->convertOpenCV2DVecToPCL3DVec(_siftPointVec2InOpenCV, _seg2Vector32bitForPCL);
 	_corlinerPointVec1InPCL = this->convertOpenCV2DVecToPCL3DVec(_corlinerPointVec1InOpenCV, _seg1Vector32bitForPCL);
 	_corlinerPointVec2InPCL = this->convertOpenCV2DVecToPCL3DVec(_corlinerPointVec2InOpenCV, _seg2Vector32bitForPCL);
 
@@ -193,8 +170,6 @@ void siftProcess::processAll()
 
 	_colinerCloud1 = this->getPointCloudFrom3dVec(_corlinerPointVec1InPCL);
 	_colinerCloud2 = this->getPointCloudFrom3dVec(_corlinerPointVec2InPCL);
-	_siftOutCloud1 = this->getPointCloudFrom3dVec(_siftPointVec1InPCL);
-	_siftOutCloud2 = this->getPointCloudFrom3dVec(_siftPointVec2InPCL);
 	_segCloud1 = this->getPointCloudFrom3dVec(_seg1Vector32bitForPCL);
 	_segCloud2 = this->getPointCloudFrom3dVec(_seg1Vector32bitForPCL);
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud1.pcd", *_colinerCloud1);
@@ -341,9 +316,6 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 		float diffX = ptSecond.x - ptFirst.x;
 		float diffY = ptSecond.y - ptFirst.y;
 		//如果相似度<最大相似度距离的1/3,则输出sift点
-
-		_siftPointVec1InOpenCV.push_back(ptFirst);
-		_siftPointVec2InOpenCV.push_back(ptFirst);
 		float theDistance = matchesVectorInOpenCV[i].distance;
 
 		if (diffX < -26 && diffX>-28 && diffY < -2 && diffY > -4)

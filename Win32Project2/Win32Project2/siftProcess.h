@@ -105,8 +105,6 @@ private:
 	std::vector<float> _rasterID32bitVecForSift2;		//sift处理的第二幅32bit序列
 	std::vector<cv::Point2f> _corlinerPointVec1InOpenCV;// 第一幅源图像的OpenCV二维内点序列
 	std::vector<cv::Point2f> _corlinerPointVec2InOpenCV;// 第二幅源图像的OpenCV二维内点序列
-	std::vector<cv::Point2f> _siftPointVec1InOpenCV;// 第一幅源图像的OpenCV sift二维内点序列
-	std::vector<cv::Point2f> _siftPointVec2InOpenCV;// 第二幅源图像的OpenCV sift二维内点序列
 	std::vector<cv::DMatch>  _colinerVectorInOpenCV;	//sift内点点对序列OpenCV
 	boost::shared_ptr<pcl::Correspondences> _cor_inliers_ptr; //对应点对，用以粗配准
 	//pcl处理部分
@@ -116,14 +114,10 @@ private:
 	std::vector<std::vector<Pt3>> _seg2Vector32bitForPCL;//pcl处理的32位图像1序列
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud1;	//第一个内点点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud2;	//第二个内点点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr _siftOutCloud1;	//第一个sift点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr _siftOutCloud2;	//第二个sift点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _segCloud1;	//第一个截取点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _segCloud2;	//第二个截取点云
 	std::vector<Pt3> _corlinerPointVec1InPCL;			// 第一幅源图像的PCL三维内点序列
 	std::vector<Pt3> _corlinerPointVec2InPCL;			// 第二幅源图像的PCL三维内点序列
-	std::vector<Pt3> _siftPointVec1InPCL;			// 第一幅源图像的sift三维内点序列
-	std::vector<Pt3> _siftPointVec2InPCL;			// 第二幅源图像的sift三维内点序列
 	Eigen::Matrix4f _roughMatrix;
 
 };
