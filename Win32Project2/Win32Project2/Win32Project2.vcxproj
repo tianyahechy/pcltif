@@ -150,23 +150,21 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>D:\lib_temp\PCL 1.8.0\3rdParty\Boost\lib;D:\lib_temp\PCL 1.8.0\lib;D:\lib_temp\CGAL\lib;D:\lib_temp\CGAL-4.9\auxiliary\gmp\lib;D:\lib_temp\buildWithContrib\lib\Release;D:\lib_temp\warmerda\bld\lib;D:\lib_temp\liblasRelease_x64\lib;$(QTDIR)\lib;D:\lib_temp\PCL 1.8.0\3rdParty\VTK\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>pcl_common_release.lib;pcl_io_release.lib;pcl_visualization_release.lib;pcl_kdtree_release.lib;pcl_surface_release.lib;pcl_segmentation_release.lib;pcl_search_release.lib;pcl_filters_release.lib;pcl_features_release.lib;pcl_sample_consensus_release.lib;pcl_keypoints_release.lib;libgmp-10.lib;libmpfr-4.lib;CGAL_Core-vc120-mt-4.9.lib;CGAL_ImageIO-vc120-mt-4.9.lib;CGAL_Qt5-vc120-mt-4.9.lib;CGAL-vc120-mt-4.9.lib;gdal_i.lib;opencv_xfeatures2d310.lib;opencv_flann310.lib;opencv_core310.lib;opencv_highgui310.lib;opencv_imgproc310.lib;opencv_features2d310.lib;opencv_imgcodecs310.lib;liblas.lib;vtkalglib-7.0.lib;vtkCommonSystem-7.0.lib;vtkCommonCore-7.0.lib;vtkCommonDataModel-7.0.lib;vtkCommonExecutionModel-7.0.lib;vtkCommonMisc-7.0.lib;vtkChartsCore-7.0.lib;vtkIOCore-7.0.lib;vtkRenderingCore-7.0.lib;vtkexpat-7.0.lib;vtkexoIIc-7.0.lib;vtkhdf5_hl-7.0.lib;vtkhdf5-7.0.lib;vtkInfovisCore-7.0.lib;vtksys-7.0.lib;vtkFiltersCore-7.0.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>pcl_common_release.lib;pcl_io_release.lib;pcl_visualization_release.lib;pcl_kdtree_release.lib;pcl_surface_release.lib;pcl_segmentation_release.lib;pcl_search_release.lib;pcl_filters_release.lib;pcl_features_release.lib;pcl_sample_consensus_release.lib;pcl_keypoints_release.lib;libgmp-10.lib;libmpfr-4.lib;CGAL_Core-vc120-mt-4.9.lib;CGAL_ImageIO-vc120-mt-4.9.lib;CGAL_Qt5-vc120-mt-4.9.lib;CGAL-vc120-mt-4.9.lib;gdal_i.lib;opencv_xfeatures2d310.lib;opencv_flann310.lib;opencv_core310.lib;opencv_highgui310.lib;opencv_imgproc310.lib;opencv_features2d310.lib;opencv_imgcodecs310.lib;opencv_calib3d310.lib;liblas.lib;vtkalglib-7.0.lib;vtkCommonSystem-7.0.lib;vtkCommonCore-7.0.lib;vtkCommonDataModel-7.0.lib;vtkCommonExecutionModel-7.0.lib;vtkCommonMisc-7.0.lib;vtkChartsCore-7.0.lib;vtkIOCore-7.0.lib;vtkRenderingCore-7.0.lib;vtkexpat-7.0.lib;vtkexoIIc-7.0.lib;vtkhdf5_hl-7.0.lib;vtkhdf5-7.0.lib;vtkInfovisCore-7.0.lib;vtksys-7.0.lib;vtkFiltersCore-7.0.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AfxUtil.cpp" />
     <ClCompile Include="common.cpp" />
-    <ClCompile Include="JDEMDataSet.cpp" />
-    <ClCompile Include="JDEMRasterBand.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PCLTif.cpp" />
+    <ClCompile Include="siftProcess.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AfxUtil.h" />
     <ClInclude Include="common.h" />
-    <ClInclude Include="JDEMDataSet.h" />
-    <ClInclude Include="JDEMRasterBand.h" />
     <ClInclude Include="PCLTif.h" />
+    <ClInclude Include="siftProcess.h" />
     <ClInclude Include="theVector3.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

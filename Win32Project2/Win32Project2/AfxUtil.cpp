@@ -472,7 +472,8 @@ namespace util
 	}
 
 	//通过读取一部分.tif，创建栅格集合（8位）
-	std::vector<uchar>getSegRasterVecVecFromTif_8bit(const char* strImageName, int xID, int yID, int width, int height, double &topLeftX, double &topLeftY)
+	std::vector<uchar>getSegRasterVecVecFromTif_8bit(const char* strImageName, int xID, int yID, int width, int height,
+		double &topLeftX, double &topLeftY, double &xResolu, double &yResolu)
 	{
 		std::vector<uchar> rasterVecVec;
 		rasterVecVec.clear();
@@ -512,8 +513,6 @@ namespace util
 		{
 			minYID = 0;
 		}
-		std::cout << "minXID = " << minXID << ",maxXID = " << maxXID << ",minYID =" << minYID << ",maxYID =" << maxYID
-			<< ",width =" << width << ",height =" << height << std::endl;
 		//输出图像的坐标和分辨率信息
 		double adfGeoTransform[6];
 		double xResolution = 0;
@@ -529,6 +528,8 @@ namespace util
 
 		topLeftX = topLeftX + xID * xResolution;
 		topLeftY = topLeftY + yID * yResolution;
+		xResolu = xResolution;
+		yResolu = yResolution;
 		//读取图像
 		GDALRasterBand * poBand = poDataSet->GetRasterBand(1);
 		rasterVecVec.resize(width * height);
@@ -538,7 +539,8 @@ namespace util
 	}
 
 	//通过读取一部分.tif，创建栅格集合（8位）
-	std::vector<uchar> getSegRasterVecVecFromTifAndLeftTop_8bit(const char* strImageName, int width, int height, double inputleftTopX, double inputleftTopY)
+	std::vector<uchar> getSegRasterVecVecFromTifAndLeftTop_8bit(const char* strImageName, int width, int height, double inputleftTopX, double inputleftTopY, 
+		int& xRoi, int& yRoi, double &outputLeftTopX, double& outputLeftTopY, double& xResolu, double& yResolu)
 	{
 		std::vector<uchar> rasterVecVec;
 		rasterVecVec.clear();
@@ -572,14 +574,12 @@ namespace util
 
 		int xID = (inputleftTopX - topLeftX) / xResolution;
 		int yID = (inputleftTopY - topLeftY) / yResolution;
-		std::cout << "inputLeftTopY=" << inputleftTopY << ",topLeftY =" << topLeftY << ",yResolution=" << yResolution << std::endl;
 		int xSize = poDataSet->GetRasterXSize();
 		int ySize = poDataSet->GetRasterYSize();
 
 		//不能超过阈值
 		int minXID = xID;
 		int minYID = yID;
-		std::cout << "minXID = " << minXID << ",minYID =" << minYID << std::endl;
 		int maxXID = minXID + width;
 		int maxYID = minYID + height;
 		if (maxXID  > xSize - 1)
@@ -599,6 +599,13 @@ namespace util
 			minYID = 0;
 		}
 
+		//返回起始id
+		xRoi = minXID;
+		yRoi = minYID;
+		outputLeftTopX = topLeftX;
+		outputLeftTopY = topLeftY;
+		xResolu = xResolution;
+		yResolu = yResolution;
 		//读取图像
 		GDALRasterBand * poBand = poDataSet->GetRasterBand(1);
 		rasterVecVec.resize(width * height);
@@ -716,6 +723,54 @@ namespace util
 
 	}
 
+	//根据.tif文件名和区域范围，得到新的vector
+	std::vector<std::vector<Pt3>> getSegRasterVecVecFromTif(std::string strTifFileName, int xRoil, int yRoil, int width, int height)
+	{
+		//先求出一部分
+		int xSize1 = 0;
+		int ySize1 = 0;
+		double xResolution1 = 0;
+		double yResolution1 = 0;
+		double topLeftX1 = 0;
+		double topLeftY1 = 0;
+		std::vector<std::vector<Pt3>> rastervecvec1 = util::getRasterVecVecFromTif(strTifFileName.c_str(),
+			xSize1, ySize1,
+			xResolution1, yResolution1,
+			topLeftX1, topLeftY1);
+
+		//赋值
+		std::vector<std::vector<Pt3>> selectRaster = getSegRasterVecVecFromVecVec2(rastervecvec1, xRoil, yRoil, width, height);
+		rastervecvec1.clear();
+		return selectRaster;
+	}
+	//根据.tif的所有点的vector和区域范围，得到新的vector
+	std::vector<std::vector<Pt3>> getSegRasterVecVecFromVecVec2(std::vector<std::vector<Pt3>> inputVecVec, int xRoil, int yRoil, int width, int height)
+	{
+		//赋值
+		std::vector<std::vector<Pt3>> selectRaster;
+		selectRaster.clear();
+		selectRaster.resize(height);
+		for (size_t i = 0; i < height; i++)
+		{
+			selectRaster[i].resize(width);
+		}
+
+		for (size_t j = 0; j < height; j++)
+		{
+			for (size_t i = 0; i < width; i++)
+			{
+				double x = inputVecVec[j + yRoil][i + xRoil].x();
+				double y = inputVecVec[j + yRoil][i + xRoil].y();
+				double z = inputVecVec[j + yRoil][i + xRoil].z();
+
+				//std::cout << "j=" << j << ",i=" << i << ",x=" << x << ",y=" << y << ",z=" << z << std::endl;
+				Pt3 thePt(x, y, z);
+				selectRaster[j][i] = thePt;
+			}
+
+		}
+		return selectRaster;
+	}
 	//作差
 	void getDifTifBetweenTwoTifs(const char* strInputTifName1, const char* strInputTifName2, const char* strOutPutTifName)
 	{
@@ -1039,5 +1094,57 @@ namespace util
 		 xSize = (int) abs( distanceX / xResolution );
 		 ySize = (int) abs(distanceY / yResolution);
 	
+	}
+	//从第一幅图截取范围的左上角(xRoi,yRoi)计算出另一幅图像的截取范围的左上角(xRoi2,yRoi2)
+	void getRoil2FromRoi1AndTif(int xRoil1, int yRoil1, int widthRoil, int heightRoil, double inputTopLeftX, double inputTopLeftY,
+		double xResolution2, double yResolution2, double topLeftX2, double topLeftY2, int xSize2, int ySize2,
+		int& xRoi2, int& yRoi2)
+	{
+
+		int xID = (inputTopLeftX - topLeftX2) / xResolution2;
+		int yID = (inputTopLeftY - topLeftY2) / yResolution2;
+
+		//不能超过阈值
+		int minXID = xID;
+		int minYID = yID;
+		int maxXID = minXID + widthRoil;
+		int maxYID = minYID + heightRoil;
+		if (maxXID  > xSize2 - 1)
+		{
+			maxXID = xSize2 - 1;
+		}
+		if (maxYID> ySize2 - 1)
+		{
+			maxYID = ySize2 - 1;
+		}
+		if (minXID < 0)
+		{
+			minXID = 0;
+		}
+		if (minYID < 0)
+		{
+			minYID = 0;
+		}
+
+		//返回起始id
+		xRoi2 = minXID;
+		yRoi2 = minYID;
+	}
+
+	//得到像素点序列
+	std::vector<float> getPixel32bitFromTifVecVec(std::vector<std::vector<Pt3>> vecvec)
+	{
+		std::vector<float> pixel32Vec;
+		pixel32Vec.clear();
+		for (size_t j = 0; j < vecvec.size(); j++)
+		{
+			for (size_t i = 0; i < vecvec[j].size(); i++)
+			{
+				float thePixel32 = vecvec[j][i].z();
+				pixel32Vec.push_back(thePixel32);
+			}
+
+		}
+		return pixel32Vec;
 	}
 }
