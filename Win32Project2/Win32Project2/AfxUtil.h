@@ -77,4 +77,11 @@ namespace util
 		 int& xRoi2, int& yRoi2);
 	//得到像素点序列
 	std::vector<float> getPixel32bitFromTifVecVec(std::vector<std::vector<Pt3>> vecvec);
+
+	//根据.tif名称得到该.tif的各要素
+	void getDetailFromTifName( std::string strTifName,
+								int& xSize, int& ySize,
+								double& xResolution, double& yResolution,
+								double& topLeftX, double& topLeftY);
+
 }

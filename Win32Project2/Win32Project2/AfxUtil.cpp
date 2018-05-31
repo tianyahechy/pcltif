@@ -1147,4 +1147,40 @@ namespace util
 		}
 		return pixel32Vec;
 	}
+
+	//根据.tif名称得到该.tif的各要素
+	void getDetailFromTifName(std::string strTifName,
+		int& xSize, int& ySize,
+		double& xResolution, double& yResolution,
+		double& topLeftX, double& topLeftY)
+	{
+
+		//设定支持中文路径
+		CPLSetConfigOption("GDAL_FILENAME_IS_UT8", "NO");
+		//注册栅格驱动
+		GDALAllRegister();
+		//使用只读方式打开图像
+		GDALDataset * poDataSet = (GDALDataset *)GDALOpen(strTifName.c_str(), GA_ReadOnly);
+		if (poDataSet == NULL)
+		{
+			std::cout << strTifName << "不能打开!" << std::endl;
+			return;
+		}
+
+		xSize = poDataSet->GetRasterXSize();
+		ySize = poDataSet->GetRasterYSize();
+
+		//输出图像的坐标和分辨率信息
+		double adfGeoTransform[6];
+		if (poDataSet->GetGeoTransform(adfGeoTransform) == CE_None)
+		{
+			topLeftX = adfGeoTransform[0];
+			topLeftY = adfGeoTransform[3];
+			xResolution = adfGeoTransform[1];
+			yResolution = adfGeoTransform[5];
+		}
+
+
+		GDALClose((GDALDatasetH)poDataSet);
+	}
 }
