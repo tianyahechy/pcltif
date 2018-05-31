@@ -138,8 +138,8 @@ void siftProcess::processAll()
 	cv::equalizeHist(srcImage8BitForSift2, heqResult2);
 
 	//3，用opencv的sift算法提取出两幅图像的sift序列和内点序列（都是局部坐标序号）
-	//this->getSIFTFeatureFromOpenCVImage8bit(srcImage8BitForSift1, srcImage8BitForSift2);
-	this->getSIFTFeatureFromOpenCVImage8bit(heqResult1, heqResult2);
+	this->getSIFTFeatureFromOpenCVImage8bit(srcImage8BitForSift1, srcImage8BitForSift2);
+	//this->getSIFTFeatureFromOpenCVImage8bit(heqResult1, heqResult2);
 	//4，得出粗配准点对
 	_cor_inliers_ptr = this->computeMiniCorrisponces(_corlinerPointVec1InOpenCV, _corlinerPointVec2InOpenCV);
 	std::cout << "cor_inliers_ptr个数:" << _cor_inliers_ptr->size() << std::endl;
