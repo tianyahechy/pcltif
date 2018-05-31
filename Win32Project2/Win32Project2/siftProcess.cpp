@@ -318,16 +318,12 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 		//如果相似度<最大相似度距离的1/3,则输出sift点
 		float theDistance = matchesVectorInOpenCV[i].distance;
 
-		if (diffX < -26 && diffX>-28 && diffY < -2 && diffY > -4)
-			//if ( theDistance < maxDistance * 1.0 / 3.0 )
-		{
-			//内点
-			_colinerVectorInOpenCV.push_back(matchesVectorInOpenCV[i]);
-			_corlinerPointVec1InOpenCV.push_back(ptFirst);
-			_corlinerPointVec2InOpenCV.push_back(ptSecond);
-			fprintf(fp, "    %-15d%-15d%-10.3f%-25.3f%-10.3f%-25.3f%-10.3f%-25.3f%-25.3f\n", idFirst, idSecond, firstPtX, firstPtY, secondPtX, secondPtY, diffX, diffY, theDistance);
+		//内点
+		_colinerVectorInOpenCV.push_back(matchesVectorInOpenCV[i]);
+		_corlinerPointVec1InOpenCV.push_back(ptFirst);
+		_corlinerPointVec2InOpenCV.push_back(ptSecond);
+		fprintf(fp, "    %-15d%-15d%-10.3f%-25.3f%-10.3f%-25.3f%-10.3f%-25.3f%-25.3f\n", idFirst, idSecond, firstPtX, firstPtY, secondPtX, secondPtY, diffX, diffY, theDistance);
 
-		}
 	}
 
 	fclose(fp);
