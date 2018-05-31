@@ -280,36 +280,44 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 
 	//特征点匹配
 	cv::FlannBasedMatcher matcher;
-	std::vector<cv::DMatch> matchesVector;
-	matcher.match(descriptor_1, descriptor_2, matchesVector);
+	std::vector<std::vector<cv::DMatch>> matchesVectorVector;
+	//matcher.match(descriptor_1, descriptor_2, matchesVector);
 	//测试一定距离的匹配
-	double maxDist = 0;
-	double minDist = 0;
-	for (int i = 0; i < matchesVector.size(); i++)
+	int k = 2;
+	matcher.knnMatch(descriptor_1, descriptor_2, matchesVectorVector, k);
+	std::vector<cv::DMatch>  matchesVectorInOpenCV;
+	//double ratio = 0.9;
+	std::vector<std::vector<cv::DMatch>>::iterator
+		iterCur = matchesVectorVector.begin(),
+		iterEnd = matchesVectorVector.end();
+	for (; iterCur != iterEnd; iterCur++)
 	{
-		double dist = matchesVector[i].distance;
-		if (dist < minDist)
+		std::vector<cv::DMatch> theMatch = *iterCur;
+		for (size_t i = 0; i < theMatch.size(); i++)
 		{
-			minDist = dist;
-		}
-		if ( dist > maxDist )
-		{
-			maxDist = dist;
+			matchesVectorInOpenCV.push_back(theMatch[i]);
 		}
 
 	}
-	std::vector<cv::DMatch>  matchesVectorInOpenCV;
-	//double ratio = 0.9;
-	for (size_t i = 0; i < matchesVector.size(); i++)
+	//计算最大最小值
+	double minDist = matchesVectorInOpenCV[0].distance;
+	double maxDist = matchesVectorInOpenCV[0].distance;
+	for (size_t i = 0; i < matchesVectorInOpenCV.size(); i++)
 	{
-		cv::DMatch theMatch = matchesVector[i];
-		double theDistance = theMatch.distance;
-		if ( theDistance < 2 * minDist )
+		double theDistance = matchesVectorInOpenCV[i].distance;
+		if (theDistance < minDist)
 		{
-			matchesVectorInOpenCV.push_back(theMatch);
+			minDist = theDistance;
 		}
-		
+		if ( theDistance > maxDist)
+		{
+			maxDist = theDistance;
+		}
 	}
+
+	std::cout << "mindist = " << minDist << ",maxDist=" << maxDist << std::endl;
+
+	double standardDist = minDist + (maxDist - minDist) * 0.6;
 	//输出匹配结果
 	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
 	fprintf(fp, "firstID        secondID                第一个坐标                       第二个坐标                            坐标差值\n");
@@ -328,13 +336,16 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 		float diffY = ptSecond.y - ptFirst.y;
 		//如果相似度<最大相似度距离的1/3,则输出sift点
 		float theDistance = matchesVectorInOpenCV[i].distance;
-
-		//内点
-		_colinerVectorInOpenCV.push_back(matchesVectorInOpenCV[i]);
-		_corlinerPointVec1InOpenCV.push_back(ptFirst);
-		_corlinerPointVec2InOpenCV.push_back(ptSecond);
-		fprintf(fp, "    %-15d%-15d%-10.3f%-25.3f%-10.3f%-25.3f%-10.3f%-25.3f%-25.3f\n", idFirst, idSecond, firstPtX, firstPtY, secondPtX, secondPtY, diffX, diffY, theDistance);
-
+		if ( theDistance < standardDist)
+		{	
+			//内点
+			_colinerVectorInOpenCV.push_back(matchesVectorInOpenCV[i]);
+			_corlinerPointVec1InOpenCV.push_back(ptFirst);
+			_corlinerPointVec2InOpenCV.push_back(ptSecond);
+			fprintf(fp, "    %-15d%-15d%-10.3f%-25.3f%-10.3f%-25.3f%-10.3f%-25.3f%-25.3f\n",
+				idFirst, idSecond, firstPtX, firstPtY, secondPtX, secondPtY, diffX, diffY, theDistance);
+		}
+	
 	}
 
 	fclose(fp);
