@@ -326,8 +326,8 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 		//如果相似度<最大相似度距离的1/3,则输出sift点
 		float theDistance = matchesVectorInOpenCV[i].distance;
 		bool bDistance = theDistance < standardDist;  //判断相似度是否合适
-		bool bWindowSizeFitX = abs(diffX) < 100;		//判断过滤窗口x大小是否合适
-		bool bWindowSizeFitY = abs(diffY) < 100;		//判断过滤窗口x大小是否合适
+		bool bWindowSizeFitX = (diffX < 0) && (diffX > -100 );		//判断过滤窗口x大小是否合适
+		bool bWindowSizeFitY = (diffY < 0) && (diffY > -100);		//判断过滤窗口x大小是否合适
 
 		if (bDistance && bWindowSizeFitX && bWindowSizeFitY)
 		{	
