@@ -72,7 +72,7 @@ public:
 	//将32位像素序列转换为8像素序列。
 	std::vector<uchar> convert32bitPixelVectorTo8bitPixelVector(std::vector<float> pixelVector32bit);
 	//计算出进行粗配准的点云，以尽可能消除坐标大小在矩阵中乘积的影响
-	void ajustVec(std::vector<Pt3> inputVec1, 
+	void ajustVecByMinXYZ(std::vector<Pt3> inputVec1, 
 		std::vector<Pt3> inputVec2,
 		std::vector<Pt3>& outputVec1,
 		std::vector<Pt3>& outputVec2,

@@ -184,7 +184,7 @@ void siftProcess::processAll()
 	adjustVec1.clear();
 	std::vector<Pt3> adjustVec2;
 	adjustVec2.clear();
-	this->ajustVec(_corlinerPointVec1InPCL, _corlinerPointVec2InPCL, adjustVec1, adjustVec2,minX, minY, minZ);
+	this->ajustVecByMinXYZ(_corlinerPointVec1InPCL, _corlinerPointVec2InPCL, adjustVec1, adjustVec2, minX, minY, minZ);
 	//根据调整后的序列得到调整后的点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustCloud1 = this->getPointCloudFrom3dVec(adjustVec1);
 	pcl::io::savePCDFile("e:\\test\\adjustCloud1.pcd", *adjustCloud1);
@@ -633,7 +633,7 @@ std::vector<uchar> siftProcess::convert32bitPixelVectorTo8bitPixelVector(std::ve
 }
 
 //计算出进行粗配准的点云，尽可能消除坐标大小在矩阵中乘积的影响
-void siftProcess::ajustVec(std::vector<Pt3> inputVec1,
+void siftProcess::ajustVecByMinXYZ(std::vector<Pt3> inputVec1,
 	std::vector<Pt3> inputVec2,
 	std::vector<Pt3>& adjustVec1,
 	std::vector<Pt3>& adjustVec2,
