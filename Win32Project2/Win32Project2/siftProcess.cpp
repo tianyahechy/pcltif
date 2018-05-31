@@ -632,7 +632,7 @@ std::vector<uchar> siftProcess::convert32bitPixelVectorTo8bitPixelVector(std::ve
 
 }
 
-//计算出进行粗配准的点云，尽可能消除坐标大小在矩阵中乘积的影响
+//根据都减去最小值，来计算出进行粗配准的点云，以尽可能消除坐标大小在矩阵中乘积的影响
 void siftProcess::ajustVecByMinXYZ(std::vector<Pt3> inputVec1,
 	std::vector<Pt3> inputVec2,
 	std::vector<Pt3>& adjustVec1,
@@ -681,6 +681,46 @@ void siftProcess::ajustVecByMinXYZ(std::vector<Pt3> inputVec1,
 	
 }
 
+//根据都减去中间值，来计算出进行粗配准的点云，以尽可能消除坐标大小在矩阵中乘积的影响
+void siftProcess::ajustVecByMidXYZ(std::vector<Pt3> inputVec1,
+	std::vector<Pt3> inputVec2,
+	std::vector<Pt3>& adjustVec1,
+	std::vector<Pt3>& adjustVec2,
+	double& midX,
+	double& midY,
+	double& midZ)
+{
+	//0，先判断两个输入序列是否为空
+	int sizeofVec1 = inputVec1.size();
+	int sizeofVec2 = inputVec2.size();
+	if (sizeofVec1 == 0 || sizeofVec2 == 0)
+	{
+		return;
+	}
+
+	//1,分别计算两个序列中的最小值
+	int midID1 = sizeofVec1 / 2;
+	Pt3 midPt1 = inputVec1[midID1];
+	double midX1 = midPt1.x();
+	double midY1 = midPt1.y();
+	double midZ1 = midPt1.z();
+
+	int midID2 = sizeofVec2 / 2;
+	Pt3 midPt2 = inputVec2[midID2];
+	double midX2 = midPt2.x();
+	double midY2 = midPt2.y();
+	double midZ2 = midPt2.z();
+
+	//2,从两个序列中的中间值计算中值
+	midX = (midX1 + midX2) / 2;
+	midY = (midY1 + midY2) / 2;
+	midZ = (midZ1 + midZ2) / 2;
+
+	//3,得出调整后的序列
+	adjustVec1 = this->getAjustVecFromVecAndDelta(inputVec1, midX, midY, midZ);
+	adjustVec2 = this->getAjustVecFromVecAndDelta(inputVec2, midX, midY, midZ);
+
+}
 //计算出给定vector的最大最小x,y,z值
 void siftProcess::getMinXYZFromVec(std::vector<Pt3> vec, double& minX, double& minY, double& minZ)
 {
