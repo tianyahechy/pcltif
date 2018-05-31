@@ -35,14 +35,6 @@ siftProcess::siftProcess(int xRoil, int yRoil, int widthRoil, int heightRoil,
 	{
 		_colinerCloud2->clear();
 	}
-	if (_segCloud1)
-	{
-		_segCloud1->clear();
-	}
-	if (_segCloud2)
-	{
-		_segCloud2->clear();
-	}
 }
 
 siftProcess::~siftProcess()
@@ -58,14 +50,6 @@ siftProcess::~siftProcess()
 	_corlinerPointVec2InPCL.clear();
 	_seg1Vector32bitForPCL.clear();
 	_seg2Vector32bitForPCL.clear();
-	if (_segCloud1)
-	{
-		_segCloud1->clear();
-	}
-	if (_segCloud2)
-	{
-		_segCloud2->clear();
-	}
 
 	if (_colinerCloud1)
 	{
@@ -170,8 +154,6 @@ void siftProcess::processAll()
 
 	_colinerCloud1 = this->getPointCloudFrom3dVec(_corlinerPointVec1InPCL);
 	_colinerCloud2 = this->getPointCloudFrom3dVec(_corlinerPointVec2InPCL);
-	_segCloud1 = this->getPointCloudFrom3dVec(_seg1Vector32bitForPCL);
-	_segCloud2 = this->getPointCloudFrom3dVec(_seg1Vector32bitForPCL);
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud1.pcd", *_colinerCloud1);
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud2.pcd", *_colinerCloud2);
 
@@ -293,11 +275,17 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 	for (; iterCur != iterEnd; iterCur++)
 	{
 		std::vector<cv::DMatch> theMatch = *iterCur;
-		for (size_t i = 0; i < theMatch.size(); i++)
+		double minDistance = theMatch[0].distance;
+		int minID = 0;
+		for (size_t i = 0; i < k; i++)
 		{
-			matchesVectorInOpenCV.push_back(theMatch[i]);
+			double theDistance = theMatch[i].distance;
+			if ( theDistance < minDistance)
+			{
+				minID = i;
+			}		
 		}
-
+		matchesVectorInOpenCV.push_back(theMatch[minID]);
 	}
 	//计算最大最小值
 	double minDist = matchesVectorInOpenCV[0].distance;
@@ -317,7 +305,8 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 
 	std::cout << "mindist = " << minDist << ",maxDist=" << maxDist << std::endl;
 
-	double standardDist = minDist + (maxDist - minDist) * 0.6;
+	double ratio = 0.5;
+	double standardDist = minDist + (maxDist - minDist) * ratio;
 	//输出匹配结果
 	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
 	fprintf(fp, "firstID        secondID                第一个坐标                       第二个坐标                            坐标差值\n");
@@ -336,7 +325,11 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 		float diffY = ptSecond.y - ptFirst.y;
 		//如果相似度<最大相似度距离的1/3,则输出sift点
 		float theDistance = matchesVectorInOpenCV[i].distance;
-		if ( theDistance < standardDist)
+		bool bDistance = theDistance < standardDist;  //判断相似度是否合适
+		bool bWindowSizeFitX = abs(diffX) < 100;		//判断过滤窗口x大小是否合适
+		bool bWindowSizeFitY = abs(diffY) < 100;		//判断过滤窗口x大小是否合适
+
+		if (bDistance && bWindowSizeFitX && bWindowSizeFitY)
 		{	
 			//内点
 			_colinerVectorInOpenCV.push_back(matchesVectorInOpenCV[i]);
