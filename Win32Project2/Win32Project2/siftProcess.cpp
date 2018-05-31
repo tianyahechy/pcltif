@@ -280,24 +280,35 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 
 	//特征点匹配
 	cv::FlannBasedMatcher matcher;
-	std::vector<std::vector<cv::DMatch>> matchesVectorVector;
-	//matcher.match(descriptor_1, descriptor_2, matchesVector);
+	std::vector<cv::DMatch> matchesVector;
+	matcher.match(descriptor_1, descriptor_2, matchesVector);
 	//测试一定距离的匹配
-	int k = 2;
-	matcher.knnMatch(descriptor_1, descriptor_2, matchesVectorVector, k);
-	std::vector<cv::DMatch>  matchesVectorInOpenCV;
-	//double ratio = 0.9;
-	std::vector<std::vector<cv::DMatch>>::iterator
-		iterCur = matchesVectorVector.begin(),
-		iterEnd = matchesVectorVector.end();
-	for (; iterCur != iterEnd; iterCur++)
+	double maxDist = 0;
+	double minDist = 0;
+	for (int i = 0; i < matchesVector.size(); i++)
 	{
-		std::vector<cv::DMatch> theMatch = *iterCur;
-		for (size_t i = 0; i < theMatch.size(); i++)
+		double dist = matchesVector[i].distance;
+		if (dist < minDist)
 		{
-			matchesVectorInOpenCV.push_back(theMatch[i]);
+			minDist = dist;
+		}
+		if ( dist > maxDist )
+		{
+			maxDist = dist;
 		}
 
+	}
+	std::vector<cv::DMatch>  matchesVectorInOpenCV;
+	//double ratio = 0.9;
+	for (size_t i = 0; i < matchesVector.size(); i++)
+	{
+		cv::DMatch theMatch = matchesVector[i];
+		double theDistance = theMatch.distance;
+		if ( theDistance < 2 * minDist )
+		{
+			matchesVectorInOpenCV.push_back(theMatch);
+		}
+		
 	}
 	//输出匹配结果
 	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
