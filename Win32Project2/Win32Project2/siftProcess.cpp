@@ -279,7 +279,7 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 	f2d->compute(srcImage2, keyPoints_2, descriptor_2);
 
 	//特征点匹配
-	cv::BFMatcher matcher;
+	cv::FlannBasedMatcher matcher;
 	std::vector<std::vector<cv::DMatch>> matchesVectorVector;
 	//matcher.match(descriptor_1, descriptor_2, matchesVector);
 	//测试一定距离的匹配
