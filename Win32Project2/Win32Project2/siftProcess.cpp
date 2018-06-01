@@ -25,8 +25,6 @@ siftProcess::siftProcess(int xRoil, int yRoil, int widthRoil, int heightRoil,
 	_colinerVectorInOpenCV.clear();
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
-	_seg1Vector32bitForPCL.clear();
-	_seg2Vector32bitForPCL.clear();
 	if (_colinerCloud1)
 	{
 		_colinerCloud1->clear();
@@ -48,8 +46,6 @@ siftProcess::~siftProcess()
 	_colinerVectorInOpenCV.clear();
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
-	_seg1Vector32bitForPCL.clear();
-	_seg2Vector32bitForPCL.clear();
 
 	if (_colinerCloud1)
 	{
@@ -65,16 +61,16 @@ siftProcess::~siftProcess()
 //处理所有步骤
 void siftProcess::processAll()
 {
-	//0,计算出两幅图像的参数,以及全图像序列
+	//0，根据.tif名称得到该.tif的各要素
 	int xSize1 = 0;
 	int ySize1 = 0;
 	double xResolution1 = 0;
 	double yResolution1 = 0;
 	double topLeftX1 = 0;
 	double topLeftY1 = 0;
-	std::vector<std::vector<Pt3>> rastervecvec1 = util::getRasterVecVecFromTif(_strImageFile1Name32bitForPCL.c_str(),
-		xSize1, ySize1,
-		xResolution1, yResolution1,
+	util::getDetailFromTifName(_strImageFile1Name32bitForPCL.c_str(),
+		xSize1, ySize1, 
+		xResolution1, yResolution1, 
 		topLeftX1, topLeftY1);
 
 	int xSize2 = 0;
@@ -83,28 +79,26 @@ void siftProcess::processAll()
 	double yResolution2 = 0;
 	double topLeftX2 = 0;
 	double topLeftY2 = 0;
-	std::vector<std::vector<Pt3>> rastervecvec2 = util::getRasterVecVecFromTif(_strImageFile2Name32bitForPCL.c_str(),
+	util::getDetailFromTifName(_strImageFile2Name32bitForPCL.c_str(),
 		xSize2, ySize2,
 		xResolution2, yResolution2,
 		topLeftX2, topLeftY2);
 
-	//1，从32位图像中提取像素序列
-	_seg1Vector32bitForPCL = util::getSegRasterVecVecFromVecVec2(rastervecvec1, _xRoi1, _yRoi1, _widthRoi, _heightRoi);
-	//从第一幅图截取范围的左上角(xRoi,yRoi)计算出另一幅图像的截取范围的左上角(xRoi2,yRoi2)
-	double inputTopLeftX = _seg1Vector32bitForPCL[0][0].x();
-	double inputTopLeftY = _seg1Vector32bitForPCL[0][0].y();
+	//1,计算.tif相应位置相应区域的32位像素集合
+	//计算得到相应截取区域的像素序列
+	_rasterID32bitVecForSift1 = util::getSegRasterVecVecFromTif_32bit(_strImageFile1Name32bitForPCL.c_str(),
+		_xRoi1, _yRoi1, _widthRoi, _heightRoi);
 
+	//根据第一幅图的位置计算第二幅图像的起点和宽高
+	
 	int xRoi2 = 0;
 	int yRoi2 = 0;
-	util::getRoil2FromRoi1AndTif(_xRoi1, _yRoi1, _widthRoi, _heightRoi, inputTopLeftX, inputTopLeftY,
-		xResolution2, yResolution2, topLeftX2, topLeftY2,  xSize2,  ySize2,
-		 xRoi2,  yRoi2);
-	//第二幅图的序列
-	_seg2Vector32bitForPCL = util::getSegRasterVecVecFromVecVec2(rastervecvec2, xRoi2, yRoi2, _widthRoi, _heightRoi);
-
-	//得到像素点序列
-	_rasterID32bitVecForSift1 = util::getPixel32bitFromTifVecVec(_seg1Vector32bitForPCL);
-	_rasterID32bitVecForSift2 = util::getPixel32bitFromTifVecVec(_seg2Vector32bitForPCL);
+	util::getRoil2FromRoi1AndTif(_xRoi1, _yRoi1, _widthRoi, _heightRoi, topLeftX1, topLeftY1,
+		xResolution2, yResolution2, topLeftX2, topLeftY2, xSize2, ySize2,
+		xRoi2, yRoi2);
+	//计算得到相应截取区域的像素序列
+	_rasterID32bitVecForSift2 = util::getSegRasterVecVecFromTif_32bit(_strImageFile2Name32bitForPCL.c_str(), 
+		xRoi2, yRoi2, _widthRoi, _heightRoi);
 
 	//2，将32位像素序列转换为8像素序列。
 	_rasterID8bitVecForSift1 = this->convert32bitPixelVectorTo8bitPixelVector(_rasterID32bitVecForSift1);
@@ -145,13 +139,16 @@ void siftProcess::processAll()
 		}
 	}
 	fclose(fp_cor_inliers_ptr);
-	
+
 	//6，将各个局部坐标序列转到三维坐标
-	_corlinerPointVec1InPCL = this->convertOpenCV2DVecToPCL3DVec(_corlinerPointVec1InOpenCV, _seg1Vector32bitForPCL);
-	_corlinerPointVec2InPCL = this->convertOpenCV2DVecToPCL3DVec(_corlinerPointVec2InOpenCV, _seg2Vector32bitForPCL);
+	_corlinerPointVec1InPCL = this->convertOpenCV2DVecToPCL3DVec(topLeftX1, topLeftY1,
+		xResolution1, yResolution1, _widthRoi,
+		_corlinerPointVec1InOpenCV, _rasterID32bitVecForSift1);
+	_corlinerPointVec2InPCL = this->convertOpenCV2DVecToPCL3DVec(topLeftX2, topLeftY2,
+		xResolution2, yResolution2, _widthRoi,
+		_corlinerPointVec2InOpenCV, _rasterID32bitVecForSift2);
 
 	//7,从三维坐标转换为点云
-
 	_colinerCloud1 = this->getPointCloudFrom3dVec(_corlinerPointVec1InPCL);
 	_colinerCloud2 = this->getPointCloudFrom3dVec(_corlinerPointVec2InPCL);
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud1.pcd", *_colinerCloud1);
@@ -243,6 +240,42 @@ std::vector<Pt3> siftProcess::convertOpenCV2DVecToPCL3DVec(std::vector<cv::Point
 
 	return pcl3DVec;
 }
+
+//二维序号坐标vector转三维坐标vector
+std::vector<Pt3> siftProcess::convertOpenCV2DVecToPCL3DVec(double leftTopX, double leftTopY,
+	double xResolution, double yResolution,
+	int widthRoi,
+	std::vector<cv::Point2f> point2dVec, std::vector<float> pixel32BitVec)
+{
+	std::vector<Pt3> pcl3DVec;
+	pcl3DVec.clear();
+	//1,首先判断二维序列和三维序列是否为空
+	if (point2dVec.size() == 0 || pixel32BitVec.size() == 0)
+	{
+		pcl3DVec.clear();
+		return pcl3DVec;
+	}
+	//2，将二维序列中的数据转化为pt3
+	std::vector<cv::Point2f>::iterator
+		iterCurVec = point2dVec.begin(),
+		iterEndVec = point2dVec.end();
+	for (; iterCurVec != iterEndVec; iterCurVec++)
+	{
+		//将每个cv::Point2f转换为Pt3
+		cv::Point2f thePoint2 = *iterCurVec;
+		int xID = thePoint2.x;
+		int yID = thePoint2.y;
+		double x = leftTopX + xID * xResolution;
+		double y = leftTopY + yID * yResolution;
+		double z = this->getPixelFromID(xID, yID, widthRoi, pixel32BitVec);
+		
+		Pt3 thePoint3(x, y, z);
+		pcl3DVec.push_back(thePoint3);
+	}
+
+	return pcl3DVec;
+}
+
 //计算图像中的SIFT特征及匹配,得出对应点对序号的vector,
 cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Mat srcImage2 )
 {
@@ -305,7 +338,7 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 
 	std::cout << "mindist = " << minDist << ",maxDist=" << maxDist << std::endl;
 
-	double ratio = 0.5;
+	double ratio = 0.6;
 	double standardDist = minDist + (maxDist - minDist) * ratio;
 	//输出匹配结果
 	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
@@ -326,8 +359,8 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Ma
 		//如果相似度<最大相似度距离的1/3,则输出sift点
 		float theDistance = matchesVectorInOpenCV[i].distance;
 		bool bDistance = theDistance < standardDist;  //判断相似度是否合适
-		bool bWindowSizeFitX = (diffX < 0) && (diffX > -100 );		//判断过滤窗口x大小是否合适
-		bool bWindowSizeFitY = (diffY < 0) && (diffY > -100);		//判断过滤窗口x大小是否合适
+		bool bWindowSizeFitX = (diffX < 100) && (diffX > -100 );		//判断过滤窗口x大小是否合适
+		bool bWindowSizeFitY = (diffY < 100) && (diffY > -100);		//判断过滤窗口x大小是否合适
 
 		if (bDistance && bWindowSizeFitX && bWindowSizeFitY)
 		{	
@@ -882,4 +915,12 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr siftProcess::getCloudFromAdjustCloudAndMinXY
 
 	//3,返回新点云
 	return originalCloud;
+}
+
+//根据id和宽度取得
+double siftProcess::getPixelFromID(int xID, int yID, int widthRoi, std::vector<float> pixel32BitVec)
+{
+	int theID = xID + yID * widthRoi;
+	double thePixel = pixel32BitVec[theID];
+	return thePixel;
 }

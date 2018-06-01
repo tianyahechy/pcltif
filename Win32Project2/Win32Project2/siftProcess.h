@@ -47,7 +47,14 @@ public:
 	boost::shared_ptr<pcl::Correspondences> computeMiniCorrisponces(std::vector<cv::Point2f> firstIDVector, 
 		std::vector<cv::Point2f> secondIDVector);
 	//opencv二维序号坐标vector转PCL三维坐标vector
-	std::vector<Pt3> convertOpenCV2DVecToPCL3DVec(std::vector<cv::Point2f> point2dVec, std::vector<std::vector<Pt3>> segVec3d);
+	std::vector<Pt3> convertOpenCV2DVecToPCL3DVec(std::vector<cv::Point2f> point2dVec, 
+		std::vector<std::vector<Pt3>> segVec3d);
+	std::vector<Pt3> convertOpenCV2DVecToPCL3DVec(double leftTopX, double leftTopY,
+		double xResolution, double yResolution,
+		int widthRoi,
+		std::vector<cv::Point2f> point2dVec, std::vector<float> pixel32BitVec);
+	//根据id和宽度取得
+	double getPixelFromID(int xID, int yID, int widthRoi, std::vector<float> pixel32BitVec);
 	//通过三维坐标序列转换为点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getPointCloudFrom3dVec(std::vector<Pt3> vec3);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getPointCloudFrom3dVec(std::vector<std::vector<Pt3>> vec3);
@@ -71,14 +78,22 @@ public:
 		int xRoil, int yRoil);
 	//将32位像素序列转换为8像素序列。
 	std::vector<uchar> convert32bitPixelVectorTo8bitPixelVector(std::vector<float> pixelVector32bit);
-	//计算出进行粗配准的点云，以尽可能消除坐标大小在矩阵中乘积的影响
-	void ajustVecByMinXYZ(std::vector<Pt3> inputVec1, 
+	//根据都减去最小值，来计算出进行粗配准的点云，以尽可能消除坐标大小在矩阵中乘积的影响
+	void ajustVecByMinXYZ(std::vector<Pt3> inputVec1,
 		std::vector<Pt3> inputVec2,
 		std::vector<Pt3>& outputVec1,
 		std::vector<Pt3>& outputVec2,
 		double& minX,
 		double& minY,
 		double& minZ);
+	//根据都减去中间值，来计算出进行粗配准的点云，以尽可能消除坐标大小在矩阵中乘积的影响
+	void ajustVecByMidXYZ(std::vector<Pt3> inputVec1,
+		std::vector<Pt3> inputVec2,
+		std::vector<Pt3>& outputVec1,
+		std::vector<Pt3>& outputVec2,
+		double& midX,
+		double& midY,
+		double& midZ);
 	//计算出给定vector的最大最小x,y,z值
 	void getMinXYZFromVec(std::vector<Pt3> vec, double& minX, double& minY, double& minZ);
 	//计算调整后的序列
@@ -110,12 +125,8 @@ private:
 	//pcl处理部分
 	std::string _strImageFile1Name32bitForPCL;			//pcl处理的32位图像1名称
 	std::string _strImageFile2Name32bitForPCL;			//pcl处理的32位图像2名称
-	std::vector<std::vector<Pt3>> _seg1Vector32bitForPCL;//pcl处理的32位图像1序列
-	std::vector<std::vector<Pt3>> _seg2Vector32bitForPCL;//pcl处理的32位图像1序列
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud1;	//第一个内点点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud2;	//第二个内点点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr _segCloud1;	//第一个截取点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr _segCloud2;	//第二个截取点云
 	std::vector<Pt3> _corlinerPointVec1InPCL;			// 第一幅源图像的PCL三维内点序列
 	std::vector<Pt3> _corlinerPointVec2InPCL;			// 第二幅源图像的PCL三维内点序列
 	Eigen::Matrix4f _roughMatrix;

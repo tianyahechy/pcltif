@@ -472,7 +472,7 @@ namespace util
 	}
 
 	//通过读取一部分.tif，创建栅格集合（8位）
-	std::vector<uchar>getSegRasterVecVecFromTif_8bit(const char* strImageName, int xID, int yID, int width, int height,
+	std::vector<uchar> getSegRasterVecVecFromTif_8bit(const char* strImageName, int xID, int yID, int width, int height,
 		double &topLeftX, double &topLeftY, double &xResolu, double &yResolu)
 	{
 		std::vector<uchar> rasterVecVec;
@@ -1182,5 +1182,32 @@ namespace util
 
 
 		GDALClose((GDALDatasetH)poDataSet);
+	}
+
+	//通过读取一部分.tif，创建栅格集合（32位）
+	std::vector<float> getSegRasterVecVecFromTif_32bit(const char* strImageName, int xID, int yID, int width, int height)
+	{
+		std::vector<float> rasterVecVec;
+		rasterVecVec.clear();
+
+		//设定支持中文路径
+		CPLSetConfigOption("GDAL_FILENAME_IS_UT8", "NO");
+		//注册栅格驱动
+		GDALAllRegister();
+		//使用只读方式打开图像
+		GDALDataset * poDataSet = (GDALDataset *)GDALOpen(strImageName, GA_ReadOnly);
+		if (poDataSet == NULL)
+		{
+			std::cout << strImageName << "不能打开!" << std::endl;
+			return rasterVecVec;
+		}
+
+		//读取图像
+		GDALRasterBand * poBand = poDataSet->GetRasterBand(1);
+		rasterVecVec.resize(width * height);
+		poBand->RasterIO(GF_Read, xID, yID, width, height, (float*)&rasterVecVec[0], width, height, GDT_Float32, 0, 0);
+		GDALClose(poDataSet);
+
+		return rasterVecVec;
 	}
 }

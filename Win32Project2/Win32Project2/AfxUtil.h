@@ -84,4 +84,7 @@ namespace util
 								double& xResolution, double& yResolution,
 								double& topLeftX, double& topLeftY);
 
+	//通过读取一部分.tif，创建栅格集合（32位）
+	std::vector <float> getSegRasterVecVecFromTif_32bit(const char* strImageName, int xID, int yID, int width, int height);
+
 }
