@@ -34,9 +34,9 @@ public:
 	void processAll();
 
 	//从8位像素序列得到opencv图像中  （是否可以直接用opencv读取8位.tif)
-	cv::Mat getOpenCVImgFrom8bitVec(std::vector<uchar> rastervec8Bit);
+	cv::Mat getOpenCVImgFrom8bitVec(std::vector<uchar> rastervec8Bit, zone theZone);
 	//计算opencv图像中的SIFT特征及匹配,得出对应点对序号的vector,
-	cv::Mat getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Mat srcImage2, 
+	void getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Mat srcImage2, 
 		std::vector<cv::Point2f>& corlinerPointVec1InOpenCVOfTheZone,
 		std::vector<cv::Point2f>& corlinerPointVec2InOpenCVOfTheZone);
 	//计算最小点云配对

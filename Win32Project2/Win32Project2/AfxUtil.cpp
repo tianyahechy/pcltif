@@ -1308,7 +1308,7 @@ namespace util
 		//·µ»ØÇøÓò·¶Î§
 		zone2.xRoi = minXID;
 		zone2.yRoi = minYID;
-		zone2.widthRoi = maxXID - minXID + 1;
-		zone2.heightRoi = maxYID - minYID + 1;
+		zone2.widthRoi = maxXID - minXID;
+		zone2.heightRoi = maxYID - minYID;
 	}
 }

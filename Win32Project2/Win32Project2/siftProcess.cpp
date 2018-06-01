@@ -13,7 +13,6 @@ siftProcess::siftProcess(int widthRoil, int heightRoil,
 
 	_roughMatrix.Identity();
 
-	_cor_inliers_ptr->clear();
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
 	if (_colinerCloud1)
@@ -36,7 +35,6 @@ siftProcess::~siftProcess()
 	{
 		_colinerCloud2->clear();
 	}
-	_cor_inliers_ptr->clear();
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
 }
@@ -51,14 +49,12 @@ void siftProcess::processAll()
 	//1,分区，根据图像的（xSize,ySize,widthRoi,HeightRoi)确定(xroi,yroi,widthRoitrue,heightRoitrue)
 	std::vector<std::vector<zone>> zoneVecVec1 = this->getZoneVecVec(xSize1, ySize1, _widthRoi, _heightRoi);
 	//对于每个区域，根据第一幅图的位置计算第二幅图像的起点和宽高
-	std::vector<Pt3> coliners1;
-	coliners1.clear();
-	std::vector<Pt3> coliners2;
-	coliners2.clear();
+	_corlinerPointVec1InPCL.clear();
+	_corlinerPointVec2InPCL.clear();
 
 	for (size_t j = 0; j < zoneVecVec1.size(); j++)
 	{
-		for (size_t i = 0; j < zoneVecVec1[j].size(); j++)
+		for (size_t i = 0; i < zoneVecVec1[j].size(); i++)
 		{
 			zone theZone1 = zoneVecVec1[j][i];
 			
@@ -69,11 +65,21 @@ void siftProcess::processAll()
 			colinersOfTheZone2Vec.clear();
 
 			this->getColinersFromZone(theZone1, _tifParameter1, _tifParameter2, colinersOfTheZone1Vec, colinersOfTheZone2Vec);
+
+			//如果点对大小为0，则跳出
+			int sizeofColiner1Vec = colinersOfTheZone1Vec.size();
+			int sizeofColiner2Vec = colinersOfTheZone2Vec.size();
+			if (sizeofColiner1Vec == 0 ||
+				sizeofColiner2Vec == 0 )
+			{
+				continue;
+			}
+
 			//将所有内点的三维坐标加入对应点对中
 			for (size_t k = 0; k < colinersOfTheZone1Vec.size(); k++)
 			{
-				coliners1.push_back(colinersOfTheZone1Vec[k]);
-				coliners2.push_back(colinersOfTheZone2Vec[k]);
+				_corlinerPointVec1InPCL.push_back(colinersOfTheZone1Vec[k]);
+				_corlinerPointVec2InPCL.push_back(colinersOfTheZone2Vec[k]);
 			}
 
 			colinersOfTheZone1Vec.clear();
@@ -83,7 +89,7 @@ void siftProcess::processAll()
 	}
 	
 	//2计算点对
-	int sizeofColiner = coliners1.size();
+	int sizeofColiner = _corlinerPointVec1InPCL.size();
 	_cor_inliers_ptr = this->computeMiniCorrisponces(sizeofColiner);
 	std::cout << "cor_inliers_ptr个数:" << _cor_inliers_ptr->size() << std::endl;
 	FILE *fp_cor_inliers_ptr;
@@ -197,7 +203,7 @@ std::vector<Pt3> siftProcess::convertOpenCV2DVecToPCL3DVec(
 		int yID = yRoi + deltaYID;
 		double x = leftTopX + xID * xResolution;
 		double y = leftTopY + yID * yResolution;
-		double z = this->getPixelFromID(xID, yID, widthRoi, pixel32BitVec);
+		double z = this->getPixelFromID(deltaXID, deltaYID, widthRoi, pixel32BitVec);
 		
 		Pt3 thePoint3(x, y, z);
 		pcl3DVec.push_back(thePoint3);
@@ -207,7 +213,7 @@ std::vector<Pt3> siftProcess::convertOpenCV2DVecToPCL3DVec(
 }
 
 //计算图像中的SIFT特征及匹配,得出对应点对序号的vector,
-cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, 
+void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, 
 	cv::Mat srcImage2,
 	std::vector<cv::Point2f>& corlinerPointVec1InOpenCVOfTheZone,
 	std::vector<cv::Point2f>& corlinerPointVec2InOpenCVOfTheZone)
@@ -221,6 +227,14 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 	f2d->detect(srcImage1, keyPoints_1);
 	f2d->detect(srcImage2, keyPoints_2);
 
+	//如果关键点个数为0，则不匹配 
+	int sizeofKeyPoint1 = keyPoints_1.size();
+	int sizeofKeyPoint2 = keyPoints_2.size();
+	if (sizeofKeyPoint1 == 0 || sizeofKeyPoint2 == 0 )
+	{
+		return;
+	}
+	
 	//计算描述子
 	cv::Mat descriptor_1, descriptor_2;
 	f2d->compute(srcImage1, keyPoints_1, descriptor_1);
@@ -307,14 +321,6 @@ cv::Mat siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 	}
 
 	fclose(fp);
-	//得到转换矩阵
-	cv::Mat matchMat;
-	cv::drawMatches(srcImage1, keyPoints_1, srcImage2, keyPoints_2, matchesVectorVector, matchMat);
-
-	//剔除不一致
-	cv::Mat finalMat = cv::findHomography(corlinerPointVec1InOpenCVOfTheZone, corlinerPointVec2InOpenCVOfTheZone, cv::RANSAC);
-	std::cout << finalMat << std::endl;
-	return matchMat;
 
 }
 //对应点对从局部坐标得到指定tif的全局坐标和相应序号
@@ -364,14 +370,16 @@ std::map<int, Pt3> siftProcess::getlinerSetFromTifAndLocalCoordinate(std::string
 	return selectTifSet;
 }
 //从8位像素序列得到opencv图像中  （是否可以直接用opencv读取8位.tif?)
-cv::Mat siftProcess::getOpenCVImgFrom8bitVec(std::vector<uchar> rastervec8Bit)
+cv::Mat siftProcess::getOpenCVImgFrom8bitVec(std::vector<uchar> rastervec8Bit, zone theZone)
 {
-	cv::Mat srcImage(_heightRoi, _widthRoi, CV_8UC1);;
-	for (int i = 0; i < _heightRoi; i++)
+	int heightRoi = theZone.heightRoi;
+	int widthRoi = theZone.widthRoi;
+	cv::Mat srcImage(heightRoi, widthRoi, CV_8UC1);;
+	for (int i = 0; i < heightRoi; i++)
 	{
-		for (int j = 0; j < _widthRoi; j++)
+		for (int j = 0; j < widthRoi; j++)
 		{
-			srcImage.at<uchar>(i, j) = rastervec8Bit[i * _widthRoi + j];
+			srcImage.at<uchar>(i, j) = rastervec8Bit[i * widthRoi + j];
 		}
 	}
 	return srcImage;
@@ -521,11 +529,19 @@ std::vector<uchar> siftProcess::convert32bitPixelVectorTo8bitPixelVector(std::ve
 			maxPixel32bit = thePixel32bit;
 		}
 	}
-	
-	//3，如果最小值和最大值相等，则返回空
+	std::cout << "minPixel32bit = " << minPixel32bit << ",maxPixel32bit = " << maxPixel32bit << std::endl;
+	//3，如果最小值和最大值相等，则设定为原值
 	if (minPixel32bit == maxPixel32bit)
 	{
-		pixelVector8bit.clear();
+		int thePixel8bit = minPixel32bit;
+		if ( thePixel8bit > 255 )
+		{
+			thePixel8bit = 255;
+		}
+		for (size_t i = 0; i < sizeof32Bit; i++)
+		{
+			pixelVector8bit.push_back(thePixel8bit);
+		}
 		return pixelVector8bit;
 	}
 
@@ -847,32 +863,60 @@ std::vector<std::vector<zone>> siftProcess::getZoneVecVec(int xSize, int ySize, 
 void siftProcess::getColinersFromZone(zone theZone1, tifParameter tif1, tifParameter tif2, 
 	std::vector<Pt3>& colinersOfTheZoneVec1, std::vector<Pt3>& colinersOfTheZoneVec2)
 {
+	//zone1的区域最小id不能为0
+	int xID1 = theZone1.xRoi;
+	int yID1 = theZone1.yRoi;
+	if (xID1 < 0 || yID1 < 0)
+	{
+		return;
+	}
 	//1,根据第一幅图的每块分区确定第二副图像的分区
 	zone zone2;
 	util::getZone2FromZone1(theZone1, tif1, tif2, zone2);
 	std::cout << "xRoi2= " << zone2.xRoi << ",yRoi2=" << zone2.yRoi << std::endl;
+	//zone2的区域最小id不能为0
+	int xID2 = zone2.xRoi;
+	int yID2 = zone2.yRoi;
+	if (xID2 < 0 || yID2 < 0)
+	{
+		return;
+	}
 
-	//1,计算.tif相应位置相应区域的32位像素集合
+	//2,计算.tif相应位置相应区域的32位像素集合
 	//计算得到相应截取区域的像素序列
 	std::vector<float> rasterID32bitVecForSift1 = util::getSegRasterVecVecFromTif_32bit(_strImageFile1Name32bit.c_str(), theZone1);
-
-	//计算得到相应截取区域的像素序列
 	std::vector<float> rasterID32bitVecForSift2 = util::getSegRasterVecVecFromTif_32bit(_strImageFile2Name32bit.c_str(), zone2);
 
-	//2，将32位像素序列转换为8像素序列。
+	//像素序列空则返回
+	int sizeof32BitSift1 = rasterID32bitVecForSift1.size();
+	int sizeof32BitSift2 = rasterID32bitVecForSift2.size();
+	if (sizeof32BitSift1 == 0 || sizeof32BitSift2 == 0)
+	{
+		return;
+	}
+	std::cout << "32bit size:(" << rasterID32bitVecForSift1.size() << "," << rasterID32bitVecForSift2.size() << ")" << std::endl;
+	//3，将32位像素序列转换为8像素序列。
 	std::vector<uchar> rasterID8bitVecForSift1 = this->convert32bitPixelVectorTo8bitPixelVector(rasterID32bitVecForSift1);
 	std::vector<uchar> rasterID8bitVecForSift2 = this->convert32bitPixelVectorTo8bitPixelVector(rasterID32bitVecForSift2);
-	//3，将像素序列填充到opencv图像
-	cv::Mat srcImage8BitForSift1 = this->getOpenCVImgFrom8bitVec(rasterID8bitVecForSift1);
-	cv::Mat srcImage8BitForSift2 = this->getOpenCVImgFrom8bitVec(rasterID8bitVecForSift2);
+	//像素序列空则返回
+	int sizeof8BitSift1 = rasterID8bitVecForSift1.size();
+	int sizeof8BitSift2 = rasterID8bitVecForSift2.size();
+	if (sizeof8BitSift1 == 0 || sizeof8BitSift2 == 0)
+	{
+		return;
+	}
+	std::cout << "8bit size:(" << rasterID8bitVecForSift1.size() << "," << rasterID8bitVecForSift2.size() << ")" << std::endl;
+	//4，将像素序列填充到opencv图像
+	cv::Mat srcImage8BitForSift1 = this->getOpenCVImgFrom8bitVec(rasterID8bitVecForSift1,theZone1);
+	cv::Mat srcImage8BitForSift2 = this->getOpenCVImgFrom8bitVec(rasterID8bitVecForSift2, zone2);
 
-	//4,均衡直方图
+	//5,均衡直方图
 	cv::Mat heqResult1;
 	cv::equalizeHist(srcImage8BitForSift1, heqResult1);
 	cv::Mat heqResult2;
 	cv::equalizeHist(srcImage8BitForSift2, heqResult2);
 
-	//5，用opencv的sift算法提取出两幅图像的sift序列和内点序列（都是局部坐标序号）
+	//6，用opencv的sift算法提取出两幅图像的sift序列和内点序列（都是局部坐标序号）
 	// 第一幅源图像的OpenCV二维内点序列
 	std::vector<cv::Point2f> corlinerPointVec1InOpenCVOfTheZone;
 	corlinerPointVec1InOpenCVOfTheZone.clear();
@@ -885,7 +929,7 @@ void siftProcess::getColinersFromZone(zone theZone1, tifParameter tif1, tifParam
 		corlinerPointVec1InOpenCVOfTheZone, 
 		corlinerPointVec2InOpenCVOfTheZone);
 	//this->getSIFTFeatureFromOpenCVImage8bit(heqResult1, heqResult2);
-	//6，将各个局部坐标序列转到三维坐标
+	//7，将各个局部坐标序列转到三维坐标
 	colinersOfTheZoneVec1 = this->convertOpenCV2DVecToPCL3DVec(
 		theZone1, 
 		tif1,
@@ -897,7 +941,7 @@ void siftProcess::getColinersFromZone(zone theZone1, tifParameter tif1, tifParam
 		corlinerPointVec2InOpenCVOfTheZone, 
 		rasterID32bitVecForSift2);
 
-	//7，清空临时序列
+	//8，清空临时序列
 	rasterID32bitVecForSift1.clear();
 	rasterID32bitVecForSift2.clear();
 	rasterID8bitVecForSift1.clear();
