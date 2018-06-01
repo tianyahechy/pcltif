@@ -19,15 +19,14 @@
 #include <pcl/sample_consensus/sac_model.h>
 #include <pcl/range_image/range_image.h>  //深度图像头文件
 
+
 //sift处理
 class siftProcess
 {
 public:
-	siftProcess(int xRoil, int yRoil, int widthRoil, int heightRoil, 
-		std::string strImageFile1Name8bitForSift, 
-		std::string strImageFile2Name8bitForSift,
-		std::string strImageFile1Name32bitForPCL,
-		std::string strImageFile2Name32bitForPCL);
+	siftProcess(int widthRoil, int heightRoil,
+		std::string strInputTifName1,
+		std::string strInputTifName2);
 	~siftProcess();
 
 public:
@@ -37,23 +36,18 @@ public:
 	//从8位像素序列得到opencv图像中  （是否可以直接用opencv读取8位.tif)
 	cv::Mat getOpenCVImgFrom8bitVec(std::vector<uchar> rastervec8Bit);
 	//计算opencv图像中的SIFT特征及匹配,得出对应点对序号的vector,
-	cv::Mat getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Mat srcImage2 );
-	//根据opencv内点局部坐标对计算粗配准点对
-	boost::shared_ptr<pcl::Correspondences> getCorrisponcesByOpenCVlocalCoordinate(std::vector<cv::Point2f> vec1,
-		std::vector<cv::Point2f> vec2);
-	//opencv转到pcl点对
-	boost::shared_ptr<pcl::Correspondences> getCorrisponcesByOpenCVMatcher(std::vector<cv::DMatch>  matchesVectorInOpenCV);
+	cv::Mat getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1, cv::Mat srcImage2, 
+		std::vector<cv::Point2f>& corlinerPointVec1InOpenCVOfTheZone,
+		std::vector<cv::Point2f>& corlinerPointVec2InOpenCVOfTheZone);
 	//计算最小点云配对
-	boost::shared_ptr<pcl::Correspondences> computeMiniCorrisponces(std::vector<cv::Point2f> firstIDVector, 
-		std::vector<cv::Point2f> secondIDVector);
-	//opencv二维序号坐标vector转PCL三维坐标vector
-	std::vector<Pt3> convertOpenCV2DVecToPCL3DVec(std::vector<cv::Point2f> point2dVec, 
-		std::vector<std::vector<Pt3>> segVec3d);
-	std::vector<Pt3> convertOpenCV2DVecToPCL3DVec(double leftTopX, double leftTopY,
-		double xResolution, double yResolution,
-		int widthRoi,
-		std::vector<cv::Point2f> point2dVec, std::vector<float> pixel32BitVec);
-	//根据id和宽度取得
+	boost::shared_ptr<pcl::Correspondences> computeMiniCorrisponces( int sizeofColiners);
+	//opencv二维序号坐标vector转PCL三维坐标vector(局部区域）
+	std::vector<Pt3> convertOpenCV2DVecToPCL3DVec(
+		zone theZone,
+		tifParameter tifParam,
+		std::vector<cv::Point2f> point2dVec, 
+		std::vector<float> pixel32BitVec);
+	//根据id和宽度取得像素值
 	double getPixelFromID(int xID, int yID, int widthRoi, std::vector<float> pixel32BitVec);
 	//通过三维坐标序列转换为点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getPointCloudFrom3dVec(std::vector<Pt3> vec3);
@@ -70,8 +64,6 @@ public:
 	//根据粗配准矩阵得出粗配准点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getRoughPointCloudFromMatrix(pcl::PointCloud<pcl::PointXYZ>::Ptr inputCloud, 
 		Eigen::Matrix4f matrix);
-	//opencv二维序号坐标转PCL三维坐标
-	Pt3 convertOpenCV2DToPCL3D(cv::Point2f point2d, std::vector<std::vector<Pt3>> segVec3d);
 	//对应点对从局部坐标得到指定tif的全局坐标和相应序号
 	std::map<int, Pt3> getlinerSetFromTifAndLocalCoordinate(std::string strTifName,
 		std::vector<cv::Point2f> localCoordinateVector,
@@ -104,27 +96,27 @@ public:
 	//点云平移回来
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getCloudFromAdjustCloudAndMinXYZ(pcl::PointCloud<pcl::PointXYZ>::Ptr adjustCloud, 
 		double minX, double minY, double minZ);
-
+	//分区，根据图像的（xSize,ySize,widthRoi,HeightRoi)确定(xroi,yroi,widthRoitrue,heightRoitrue)
+	std::vector<std::vector<zone>> getZoneVecVec(int xSize, int ySize, int widthRoi, int heightRoi);
+	//返回第一块区域对应的对应内点三维坐标序列
+	void getColinersFromZone(zone theZone1, 
+		tifParameter tif1, 
+		tifParameter tif2, 
+		std::vector<Pt3>& colinersOfTheZone1Vec, 
+		std::vector<Pt3>& colinersOfTheZoneVec2);
 private:
-	int _xRoi1;			//第一幅图的左上角x方向ID
-	int _yRoi1;			//第一幅图的左上角y方向ID
-	int _widthRoi;		//第一幅图截取的宽度	（第二副图可能相等，也可能不等）
-	int _heightRoi;		//第一幅图截取的高度
+
+	std::string _strImageFile1Name32bit;				//32位图像1名称
+	std::string _strImageFile2Name32bit;				//32位图像2名称
+	tifParameter _tifParameter1;						//第一幅.tif图像的参数
+	tifParameter _tifParameter2;						//第二幅.tif图像的参数
+	int _widthRoi;										//指定分块的宽度
+	int _heightRoi;										//指定分块的高度
 
 	//sift处理部分
-	std::string _strImageFile1Name8bitForSift;			//sift处理用的8bit图像文件1名称
-	std::string _strImageFile2Name8bitForSift;			//sift处理用的8bit图像文件2名称
-	std::vector<uchar> _rasterID8bitVecForSift1;		//sift处理的第一幅8bit序列
-	std::vector<uchar> _rasterID8bitVecForSift2;		//sift处理的第二幅8bit序列
-	std::vector<float> _rasterID32bitVecForSift1;		//sift处理的第一幅32bit序列
-	std::vector<float> _rasterID32bitVecForSift2;		//sift处理的第二幅32bit序列
-	std::vector<cv::Point2f> _corlinerPointVec1InOpenCV;// 第一幅源图像的OpenCV二维内点序列
-	std::vector<cv::Point2f> _corlinerPointVec2InOpenCV;// 第二幅源图像的OpenCV二维内点序列
-	std::vector<cv::DMatch>  _colinerVectorInOpenCV;	//sift内点点对序列OpenCV
 	boost::shared_ptr<pcl::Correspondences> _cor_inliers_ptr; //对应点对，用以粗配准
 	//pcl处理部分
-	std::string _strImageFile1Name32bitForPCL;			//pcl处理的32位图像1名称
-	std::string _strImageFile2Name32bitForPCL;			//pcl处理的32位图像2名称
+
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud1;	//第一个内点点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud2;	//第二个内点点云
 	std::vector<Pt3> _corlinerPointVec1InPCL;			// 第一幅源图像的PCL三维内点序列

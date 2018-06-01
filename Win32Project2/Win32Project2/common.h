@@ -171,3 +171,23 @@ struct Pt8BitAndID
 	int value;
 };
 
+//截取的每块区域
+struct zone
+{
+	int xRoi;
+	int yRoi;
+	int widthRoi;
+	int heightRoi;
+};
+
+//tif的参数
+struct tifParameter
+{
+	double xResolution;
+	double yResolution;
+	double leftTopX;
+	double leftTopY;
+	int xSize;
+	int ySize;
+
+};

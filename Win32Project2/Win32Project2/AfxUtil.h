@@ -3,6 +3,7 @@
 
 namespace util
 {
+
 	//通过栅格创建TIF文件
 	void createRasterFile(const char* strImageName, int bandSize, int xSize, int ySize,
 		double xResolution, double yResolution,
@@ -75,16 +76,22 @@ namespace util
 	void getRoil2FromRoi1AndTif(int widthRoil, int heightRoil, double inputTopLeftX, double inputTopLeftY,
 		 double xResolution2, double yResolution2, double topLeftX2,double topLeftY2,int xSize2,int ySize2,
 		 int& xRoi2, int& yRoi2);
+
+	//从第一幅图截取范围的参数计算出另一幅图像的截取范围的参数
+	void getZone2FromZone1(zone zone1, tifParameter tif1, tifParameter tif2, zone& zone2);
 	//得到像素点序列
 	std::vector<float> getPixel32bitFromTifVecVec(std::vector<std::vector<Pt3>> vecvec);
 
 	//根据.tif名称得到该.tif的各要素
-	void getDetailFromTifName( std::string strTifName,
-								int& xSize, int& ySize,
-								double& xResolution, double& yResolution,
-								double& topLeftX, double& topLeftY);
+	void getDetailFromTifName(std::string strTifName,
+		int& xSize, int& ySize,
+		double& xResolution, double& yResolution,
+		double& topLeftX, double& topLeftY);	
+	void getTifParameterFromTifName(std::string strTifName,
+		tifParameter & theTifParameter);
 
 	//通过读取一部分.tif，创建栅格集合（32位）
 	std::vector <float> getSegRasterVecVecFromTif_32bit(const char* strImageName, int xID, int yID, int width, int height);
+	std::vector <float> getSegRasterVecVecFromTif_32bit(const char* strImageName, zone theZone);
 
 }

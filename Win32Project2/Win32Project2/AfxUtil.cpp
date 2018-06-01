@@ -1125,6 +1125,14 @@ namespace util
 		{
 			minYID = 0;
 		}
+		if ( minXID >= maxXID )
+		{
+			minXID = maxXID;
+		}
+		if (minYID >= maxYID)
+		{
+			minYID = maxYID;
+		}
 
 		//返回起始id
 		xRoi2 = minXID;
@@ -1209,5 +1217,98 @@ namespace util
 		GDALClose(poDataSet);
 
 		return rasterVecVec;
+	}
+
+	std::vector<float> getSegRasterVecVecFromTif_32bit(const char* strImageName, zone theZone)
+	{
+		int xID = theZone.xRoi;
+		int yID = theZone.yRoi;
+		int width = theZone.widthRoi;
+		int height = theZone.heightRoi;
+		
+		std::vector<float> rasterVec32bit = getSegRasterVecVecFromTif_32bit(strImageName, xID, yID, width, height);
+		return rasterVec32bit;
+	}
+	//根据.tif名称得到该.tif的各要素
+	void getTifParameterFromTifName(std::string strTifName,
+		tifParameter & theTifParameter)
+	{
+		int xSize = 0;
+		int ySize = 0;
+		double  xResolution = 0;
+		double  yResolution = 0;
+		double  topLeftX = 0;
+		double  topLeftY = 0;
+		util::getDetailFromTifName(strTifName, xSize, ySize, xResolution, yResolution, topLeftX, topLeftY);
+		
+		theTifParameter.xSize = xSize;
+		theTifParameter.ySize = ySize;
+		theTifParameter.xResolution = xResolution;
+		theTifParameter.yResolution = yResolution;
+		theTifParameter.leftTopX = topLeftX;
+		theTifParameter.leftTopY = topLeftX;
+
+	}
+
+	//从第一幅图截取范围的参数计算出另一幅图像的截取范围的参数
+	void getZone2FromZone1(zone zone1, tifParameter tif1, tifParameter tif2, zone& zone2)
+	{
+		int xRoi1 = zone1.xRoi;
+		int yRoi1 = zone1.yRoi;
+		int widthRoi1 = zone1.widthRoi;
+		int heightRoi1 = zone1.heightRoi;
+
+		double topLeftX1 = tif1.leftTopX;
+		double topLeftY1 = tif1.leftTopY;
+		double xResolution1 = tif1.xResolution;
+		double yResolution1 = tif1.yResolution;
+
+		double topLeftX2 = tif2.leftTopX;
+		double topLeftY2 = tif2.leftTopY;
+		double xResolution2 = tif2.xResolution;
+		double yResolution2 = tif2.yResolution;
+		int xSize2 = tif2.xSize;
+		int ySize2 = tif2.ySize;
+
+		double topLeftXRoi = topLeftX1 + xResolution1 * xRoi1;
+		double topLeftYRoi = topLeftY1 + yResolution1 * yRoi1;
+		int xID = (topLeftXRoi - topLeftX2) / xResolution2;
+		int yID = (topLeftYRoi - topLeftY2) / yResolution2;
+
+		//不能超过阈值
+		int minXID = xID;
+		int minYID = yID;
+		int maxXID = minXID + widthRoi1;
+		int maxYID = minYID + heightRoi1;
+		if (maxXID  > xSize2 - 1)
+		{
+			maxXID = xSize2 - 1;
+		}
+		if (maxYID> ySize2 - 1)
+		{
+			maxYID = ySize2 - 1;
+		}
+		if (minXID < 0)
+		{
+			minXID = 0;
+		}
+		if (minYID < 0)
+		{
+			minYID = 0;
+		}
+		if (minXID >= maxXID)
+		{
+			minXID = maxXID;
+		}
+		if (minYID >= maxYID)
+		{
+			minYID = maxYID;
+		}
+
+		//返回区域范围
+		zone2.xRoi = minXID;
+		zone2.yRoi = minYID;
+		zone2.widthRoi = maxXID - minXID + 1;
+		zone2.heightRoi = maxYID - minYID + 1;
 	}
 }
