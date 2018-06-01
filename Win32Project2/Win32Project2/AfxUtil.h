@@ -72,7 +72,7 @@ namespace util
 	std::vector<std::vector<Pt3>> getSegRasterVecVecFromVecVec2(std::vector<std::vector<Pt3>> inputVecVec, int xRoil, int yRoil, int width, int height);
 
 	//从第一幅图截取范围的左上角(xRoi,yRoi)计算出另一幅图像的截取范围的左上角(xRoi2,yRoi2)
-	void getRoil2FromRoi1AndTif(int xRoil1, int yRoil1, int widthRoil, int heightRoil, double inputTopLeftX, double inputTopLeftY,
+	void getRoil2FromRoi1AndTif(int widthRoil, int heightRoil, double inputTopLeftX, double inputTopLeftY,
 		 double xResolution2, double yResolution2, double topLeftX2,double topLeftY2,int xSize2,int ySize2,
 		 int& xRoi2, int& yRoi2);
 	//得到像素点序列

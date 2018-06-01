@@ -83,6 +83,7 @@ void siftProcess::processAll()
 		xSize2, ySize2,
 		xResolution2, yResolution2,
 		topLeftX2, topLeftY2);
+	
 
 	//1,计算.tif相应位置相应区域的32位像素集合
 	//计算得到相应截取区域的像素序列
@@ -90,12 +91,14 @@ void siftProcess::processAll()
 		_xRoi1, _yRoi1, _widthRoi, _heightRoi);
 
 	//根据第一幅图的位置计算第二幅图像的起点和宽高
-	
+	double topLeftXRoi = topLeftX1 + xResolution1 * _xRoi1;
+	double topLeftYRoi = topLeftY1 + yResolution1 * _yRoi1;
 	int xRoi2 = 0;
 	int yRoi2 = 0;
-	util::getRoil2FromRoi1AndTif(_xRoi1, _yRoi1, _widthRoi, _heightRoi, topLeftX1, topLeftY1,
+	util::getRoil2FromRoi1AndTif(_widthRoi, _heightRoi, topLeftXRoi, topLeftYRoi,
 		xResolution2, yResolution2, topLeftX2, topLeftY2, xSize2, ySize2,
 		xRoi2, yRoi2);
+	std::cout << "xRoi2= " << xRoi2 << ",yRoi2=" << yRoi2 << std::endl;
 	//计算得到相应截取区域的像素序列
 	_rasterID32bitVecForSift2 = util::getSegRasterVecVecFromTif_32bit(_strImageFile2Name32bitForPCL.c_str(), 
 		xRoi2, yRoi2, _widthRoi, _heightRoi);
