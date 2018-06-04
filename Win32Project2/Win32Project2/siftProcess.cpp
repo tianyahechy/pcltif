@@ -2,7 +2,9 @@
 #include "math.h"
 siftProcess::siftProcess(int widthRoil, int heightRoil,
 	std::string strInputTifName1,
-	std::string strInputTifName2)
+	std::string strInputTifName2,
+	std::string strInputPCDName1,
+	std::string strInputPCDName2)
 {
 	_widthRoi = widthRoil;
 	_heightRoi = heightRoil;
@@ -10,6 +12,14 @@ siftProcess::siftProcess(int widthRoil, int heightRoil,
 	_strImageFile2Name32bit = strInputTifName2;
 	util::getTifParameterFromTifName(_strImageFile1Name32bit, _tifParameter1);
 	util::getTifParameterFromTifName(_strImageFile2Name32bit, _tifParameter2);
+
+	pcl::PCDReader reader;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1(new pcl::PointCloud<pcl::PointXYZ>);
+	_cloud1 = cloud1;
+	reader.read(strInputPCDName1, *_cloud1);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
+	_cloud2 = cloud2;
+	reader.read(strInputPCDName2, *_cloud2);
 
 	_roughMatrix.Identity();
 
@@ -140,18 +150,30 @@ void siftProcess::processAll()
 	std::cout << "输出粗配准矩阵" << std::endl;
 	std::cout << _roughMatrix << std::endl;
 	//根据粗配准矩阵得出粗配准点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustRoughCloud = this->getRoughPointCloudFromMatrix(adjustCloud1, _roughMatrix);
-	pcl::io::savePCDFile("e:\\test\\adjustRoughCloud.pcd", *adjustRoughCloud);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud1 = this->getPointCloudFromPointCloudAndDeltaXYZ(_cloud1, minX, minY, minZ);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud2 = this->getPointCloudFromPointCloudAndDeltaXYZ(_cloud2, minX, minY, minZ);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustAllCloud1, _roughMatrix);
+	pcl::io::savePCDFile("e:\\test\\adjustRoughCloud.pcd", *adjustAllRoughCloud1);
 
 	//6，用icp得出精配准矩阵
-	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustRoughCloud, adjustCloud2);
+	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustAllCloud2);
 	//输出最终矩阵
 	std::cout << "输出精配准矩阵" << std::endl;
 	std::cout << detailMatrix << std::endl;
 
 	//7,点云平移回来
-	pcl::PointCloud<pcl::PointXYZ>::Ptr finalCloud = this->getCloudFromAdjustCloudAndMinXYZ(adjustRoughCloud, minX, minY, minZ);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr finalCloud = this->getCloudFromAdjustCloudAndMinXYZ(adjustAllRoughCloud1, minX, minY, minZ);
 	pcl::io::savePCDFile("e:\\test\\finalCloud.pcd", *finalCloud);
+	
+	//8，清理
+	adjustVec1.clear();
+	adjustVec2.clear();
+	adjustCloud1->clear();
+	adjustCloud2->clear();
+	adjustAllCloud1->clear();
+	adjustAllCloud2->clear();
+	adjustAllRoughCloud1->clear();
+	finalCloud->clear();
 	
 }
 
@@ -161,7 +183,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr siftProcess::getRoughPointCloudFromMatrix(pc
 {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_filtered_Raw(new pcl::PointCloud<pcl::PointXYZ>);
 	cloud_in_filtered_Raw->height = 1;
-	cloud_in_filtered_Raw->width = 100000;
+	cloud_in_filtered_Raw->width = inputCloud->points.size();
 	cloud_in_filtered_Raw->resize(cloud_in_filtered_Raw->width * cloud_in_filtered_Raw->height);
 	std::cout << "cloud_in_filtered_Raw转换前个数：" << cloud_in_filtered_Raw->size() << std::endl;
 	pcl::transformPointCloud(*inputCloud, *cloud_in_filtered_Raw, transformation_matrix);
@@ -413,6 +435,34 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr siftProcess::getPointCloudFrom3dVec(std::vec
 		double x = thetifPt.x();
 		double y = thetifPt.y();
 		double z = thetifPt.z();
+
+		pcl::PointXYZ thePt;
+		thePt.x = x;
+		thePt.y = y;
+		thePt.z = z;
+		cloud->points[i] = thePt;
+
+	}
+	return cloud;
+}
+//通过点云和偏移坐标转换为新点云
+pcl::PointCloud<pcl::PointXYZ>::Ptr siftProcess::getPointCloudFromPointCloudAndDeltaXYZ(pcl::PointCloud<pcl::PointXYZ>::Ptr originalCloud,
+	double deltaX, double deltaY, double deltaZ)
+{
+	//写点云(局部）
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+	cloud->clear();
+	cloud->width = originalCloud->points.size();
+	cloud->height = 1;
+	cloud->is_dense = false;
+	cloud->resize(cloud->width * cloud->height);
+
+	for (size_t i = 0; i < cloud->size(); i++)
+	{
+
+		double x = originalCloud->points[i].x - deltaX;
+		double y = originalCloud->points[i].y - deltaY;
+		double z = originalCloud->points[i].z - deltaZ;
 
 		pcl::PointXYZ thePt;
 		thePt.x = x;

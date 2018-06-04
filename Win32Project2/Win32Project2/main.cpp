@@ -18,8 +18,10 @@ int main()
 
 	std::string strInputTifName1 = "E:\\DEM-2013.tif";
 	std::string strInputTifName2 = "E:\\DEM-2016.tif";
+	std::string strInputPCDName1 = "E:\\DEM-2013.pcd";
+	std::string strInputPCDName2 = "E:\\DEM-2016.pcd";
 	
-	siftProcess *theProcess = new siftProcess(widthRoi, heightRoi, strInputTifName1, strInputTifName2);
+	siftProcess *theProcess = new siftProcess(widthRoi, heightRoi, strInputTifName1, strInputTifName2, strInputPCDName1, strInputPCDName2);
 	theProcess->processAll();
 	return 0;
 

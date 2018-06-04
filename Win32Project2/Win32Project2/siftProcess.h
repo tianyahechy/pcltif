@@ -26,7 +26,9 @@ class siftProcess
 public:
 	siftProcess(int widthRoil, int heightRoil,
 		std::string strInputTifName1,
-		std::string strInputTifName2);
+		std::string strInputTifName2,
+		std::string strInputPCDName1,
+		std::string strInputPCDName2);
 	~siftProcess();
 
 public:
@@ -52,6 +54,9 @@ public:
 	//通过三维坐标序列转换为点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getPointCloudFrom3dVec(std::vector<Pt3> vec3);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getPointCloudFrom3dVec(std::vector<std::vector<Pt3>> vec3);
+	//通过点云和偏移坐标转换为新点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr getPointCloudFromPointCloudAndDeltaXYZ(pcl::PointCloud<pcl::PointXYZ>::Ptr originalCloud,
+		double deltaX, double deltaY, double deltaZ);
 
 	//得出粗配准矩阵
 	void computeRoughMatrix(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1, 
@@ -116,7 +121,8 @@ private:
 	//sift处理部分
 	boost::shared_ptr<pcl::Correspondences> _cor_inliers_ptr; //对应点对，用以粗配准
 	//pcl处理部分
-
+	pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud1;		//第一个点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud2;		//第二个点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud1;	//第一个内点点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud2;	//第二个内点点云
 	std::vector<Pt3> _corlinerPointVec1InPCL;			// 第一幅源图像的PCL三维内点序列
