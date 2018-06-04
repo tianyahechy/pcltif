@@ -109,6 +109,8 @@ public:
 		tifParameter tif2, 
 		std::vector<Pt3>& colinersOfTheZone1Vec, 
 		std::vector<Pt3>& colinersOfTheZoneVec2);
+	//选取一部分点云进行处理
+	pcl::PointCloud<pcl::PointXYZ>::Ptr getSampleCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr originalCloud, float ratioOfDataSize = 0.4 );
 private:
 
 	std::string _strImageFile1Name32bit;				//32位图像1名称

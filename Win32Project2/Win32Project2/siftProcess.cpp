@@ -104,20 +104,27 @@ void siftProcess::processAll()
 	std::cout << "cor_inliers_ptr个数:" << _cor_inliers_ptr->size() << std::endl;
 	FILE *fp_cor_inliers_ptr;
 	fp_cor_inliers_ptr = fopen("E:\\test\\fp_cor_inliers_ptr2.txt", "w");
+	fprintf(fp_cor_inliers_ptr, "点对序号                         坐标1                            坐标2                            差值\n");
+
 	for (size_t i = 0; i < _cor_inliers_ptr->size(); i++)
 	{
 		int firstID = _cor_inliers_ptr->at(i).index_query;
 		int secondID = _cor_inliers_ptr->at(i).index_match;
-		double distance = _cor_inliers_ptr->at(i).distance;
-		double weight = _cor_inliers_ptr->at(i).weight;
+		Pt3 pt1 = _corlinerPointVec1InPCL[i];
+		float x1 = pt1.x();
+		float y1 = pt1.y();
+		float z1 = pt1.z();
+		Pt3 pt2 = _corlinerPointVec2InPCL[i];
+		float x2 = pt2.x();
+		float y2 = pt2.y();
+		float z2 = pt2.z();
+		
+		float diffX = x2 - x1;
+		float diffY = y2 - y1;
+		float diffZ = z2 - z1;
+		fprintf(fp_cor_inliers_ptr, "（%d,%d,)        %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f  \n",
+			firstID, secondID,x1,y1,z1,x2,y2,z2,diffX,diffY, diffZ);
 
-		fprintf(fp_cor_inliers_ptr, "(<%d,%d>,%f,%f,)\n",
-			firstID, secondID, distance, weight);
-
-		if (i % 10 == 0)
-		{
-			std::cout << std::endl;
-		}
 	}
 	fclose(fp_cor_inliers_ptr);
 
@@ -151,12 +158,17 @@ void siftProcess::processAll()
 	std::cout << _roughMatrix << std::endl;
 	//根据粗配准矩阵得出粗配准点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud1 = this->getPointCloudFromPointCloudAndDeltaXYZ(_cloud1, minX, minY, minZ);
+	//选取一部分点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud1 = this->getSampleCloud(adjustAllCloud1, 0.1);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud2 = this->getPointCloudFromPointCloudAndDeltaXYZ(_cloud2, minX, minY, minZ);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustAllCloud1, _roughMatrix);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud2 = this->getSampleCloud(adjustAllCloud2, 0.1);
+	//pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustAllCloud1, _roughMatrix);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(sampleCloud1, _roughMatrix);
 	pcl::io::savePCDFile("e:\\test\\adjustRoughCloud.pcd", *adjustAllRoughCloud1);
 
 	//6，用icp得出精配准矩阵
-	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustAllCloud2);
+	//Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustAllCloud2);
+	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, sampleCloud2);
 	//输出最终矩阵
 	std::cout << "输出精配准矩阵" << std::endl;
 	std::cout << detailMatrix << std::endl;
@@ -174,6 +186,8 @@ void siftProcess::processAll()
 	adjustAllCloud2->clear();
 	adjustAllRoughCloud1->clear();
 	finalCloud->clear();
+	sampleCloud1->clear();
+	sampleCloud2->clear();
 	
 }
 
@@ -307,7 +321,7 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 
 	std::cout << "mindist = " << minDist << ",maxDist=" << maxDist << std::endl;
 
-	double ratio = 0.6;
+	double ratio = 0.9;
 	double standardDist = minDist + (maxDist - minDist) * ratio;
 	//输出匹配结果
 	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
@@ -328,8 +342,8 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 		//如果相似度<最大相似度距离的1/3,则输出sift点
 		float theDistance = matchesVectorInOpenCV[i].distance;
 		bool bDistance = theDistance < standardDist;  //判断相似度是否合适
-		bool bWindowSizeFitX = (diffX < 100) && (diffX > -100 );		//判断过滤窗口x大小是否合适
-		bool bWindowSizeFitY = (diffY < 100) && (diffY > -100);		//判断过滤窗口x大小是否合适
+		bool bWindowSizeFitX = (diffX < -17) && (diffX > -37 );		//判断过滤窗口x大小是否合适
+		bool bWindowSizeFitY = (diffY < 10) && (diffY > -10);		//判断过滤窗口y大小是否合适
 
 		if (bDistance && bWindowSizeFitX && bWindowSizeFitY)
 		{	
@@ -785,10 +799,10 @@ Eigen::Matrix4f siftProcess::ICPRegistration(pcl::PointCloud<pcl::PointXYZ>::Ptr
 
 	//3,setEuclideanFitnessEpsilon， 还有一条收敛条件是均方误差和小于阈值， 停止迭代。
 
-	double correspondenceDistance = 0.5;
+	double correspondenceDistance = 10000;
 	int ICPmaximumIterations = 200;
-	double ICPTransformationEpsilon = 1e-6;
-	double ICPEuclideanFitnessEpsilon = 0.5;
+	double ICPTransformationEpsilon = 100;
+	//double ICPEuclideanFitnessEpsilon = 0.5;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr finalAdjustPointCloud(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
 	icp.setInputSource(sourceCloud);
@@ -796,7 +810,7 @@ Eigen::Matrix4f siftProcess::ICPRegistration(pcl::PointCloud<pcl::PointXYZ>::Ptr
 	icp.setMaxCorrespondenceDistance(correspondenceDistance);
 	icp.setMaximumIterations(ICPmaximumIterations);
 	icp.setTransformationEpsilon(ICPTransformationEpsilon);
-	icp.setEuclideanFitnessEpsilon(ICPEuclideanFitnessEpsilon);
+	//icp.setEuclideanFitnessEpsilon(ICPEuclideanFitnessEpsilon);
 	icp.align(*finalAdjustPointCloud);
 
 	std::string strFinalPointCloud = "E:\\test\\finalAdjustPointCloud.pcd";
@@ -819,6 +833,8 @@ Eigen::Matrix4f siftProcess::ICPRegistration(pcl::PointCloud<pcl::PointXYZ>::Ptr
 	std::string strDiffCloud = "E:\\test\\diffCloud.pcd";
 	pcl::io::savePCDFile(strDiffCloud, *diffCloud);
 
+	finalAdjustPointCloud->clear();
+	diffCloud->clear();
 	//返回最终矩阵
 	Eigen::Matrix4f finalMatrix = icp.getFinalTransformation();
 	return finalMatrix;
@@ -997,4 +1013,31 @@ void siftProcess::getColinersFromZone(zone theZone1, tifParameter tif1, tifParam
 	rasterID8bitVecForSift1.clear();
 	rasterID8bitVecForSift2.clear();
 
+}
+//选取一部分点云进行处理
+pcl::PointCloud<pcl::PointXYZ>::Ptr siftProcess::getSampleCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr originalCloud, float ratioOfDataSize )
+{
+	//写点云(局部）
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+	cloud->clear();
+	cloud->width = originalCloud->points.size() * ratioOfDataSize;
+	cloud->height = 1;
+	cloud->is_dense = false;
+	cloud->resize(cloud->width * cloud->height);
+
+	for (size_t i = 0; i < cloud->size(); i++)
+	{
+
+		double x = originalCloud->points[i].x;
+		double y = originalCloud->points[i].y;
+		double z = originalCloud->points[i].z;
+
+		pcl::PointXYZ thePt;
+		thePt.x = x;
+		thePt.y = y;
+		thePt.z = z;
+		cloud->points[i] = thePt;
+
+	}
+	return cloud;
 }
