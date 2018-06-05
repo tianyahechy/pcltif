@@ -819,7 +819,7 @@ std::vector<Pt3> siftProcess::getAjustVecFromVecAndDelta(std::vector<Pt3> vec, d
 
 	return adjustVec;
 }
-
+  
 //¾«Åä×¼
 Eigen::Matrix4f siftProcess::ICPRegistration(pcl::PointCloud<pcl::PointXYZ>::Ptr sourceCloud,
 	pcl::PointCloud<pcl::PointXYZ>::Ptr targetCloud)
