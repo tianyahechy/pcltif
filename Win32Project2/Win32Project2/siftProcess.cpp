@@ -13,31 +13,19 @@ siftProcess::siftProcess(int widthRoil, int heightRoil,
 	util::getTifParameterFromTifName(_strImageFile1Name32bit, _tifParameter1);
 	util::getTifParameterFromTifName(_strImageFile2Name32bit, _tifParameter2);
 
-	_cloud1Vector.clear();
+	
 	_cloud2Vector.clear();
 	pcl::PCDReader reader;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1(new pcl::PointCloud<pcl::PointXYZ>);
 	_cloud1 = cloud1;
 	reader.read(strInputPCDName1, *_cloud1);
-	for (size_t i = 0; i < cloud1->points.size(); i++)
-	{
-		double x = cloud1->points[i].x;
-		double y = cloud1->points[i].y;
-		double z = cloud1->points[i].z;
-		Pt3 thePt(x, y, z);
-		_cloud1Vector.push_back(thePt);
-	}
+	_cloud1Vector = this->getVecFromCloud(_cloud1);
+
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
 	_cloud2 = cloud2;
 	reader.read(strInputPCDName2, *_cloud2);
-	for (size_t i = 0; i < cloud2->points.size(); i++)
-	{
-		double x = cloud2->points[i].x;
-		double y = cloud2->points[i].y;
-		double z = cloud2->points[i].z;
-		Pt3 thePt(x, y, z);
-		_cloud2Vector.push_back(thePt);
-	}
+	_cloud2Vector = this->getVecFromCloud(_cloud2);
+
 	_roughMatrix.Identity();
 
 	_corlinerPointVec1InPCL.clear();
@@ -176,6 +164,12 @@ void siftProcess::processAll()
 	std::cout << _roughMatrix << std::endl;
 	//根据粗配准矩阵得出粗配准点云
 	
+	//选取一部分点云
+	double ratioSample = 0.1;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud1 = this->getSampleCloud(_cloud1, ratioSample);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud2 = this->getSampleCloud(_cloud2, ratioSample);
+	std::vector<Pt3> sampleVec1 = this->getVecFromCloud(sampleCloud1);
+	std::vector<Pt3> sampleVec2 = this->getVecFromCloud(sampleCloud2);
 	//从整块点云vector中得到调整后的vector
 	double minX2 = 0;
 	double minY2 = 0;
@@ -185,17 +179,16 @@ void siftProcess::processAll()
 	adjustCloudVec1.clear();
 	std::vector<Pt3> adjustCloudVec2;
 	adjustCloudVec2.clear();
-	this->ajustVecByMinXYZ(_cloud1Vector, _cloud2Vector, adjustCloudVec1, adjustCloudVec2, minX2, minY2, minZ2);
+	this->ajustVecByMinXYZ(sampleVec2, sampleVec2, adjustCloudVec1, adjustCloudVec2, minX2, minY2, minZ2);
 
-	//选取一部分点云
+	//将选取的点云部分调整一个偏移量
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud1 = this->getPointCloudFrom3dVec(adjustCloudVec1);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud2 = this->getPointCloudFrom3dVec(adjustCloudVec2);
 
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud1 = this->getPointCloudFrom3dVec(adjustCloudVec1);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud1 = this->getSampleCloud(adjustAllCloud1, 0.1);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud2 = this->getPointCloudFrom3dVec(adjustCloudVec2);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud2 = this->getSampleCloud(adjustAllCloud2, 0.1);
 	//pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustAllCloud1, _roughMatrix);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustSampleCloud1, _roughMatrix);
 	pcl::io::savePCDFile("e:\\test\\adjustRoughCloud.pcd", *adjustAllRoughCloud1);
+	pcl::io::savePCDFile("e:\\test\\adjustSampleCloud2.pcd", *adjustSampleCloud2);
 
 	//6，用icp得出精配准矩阵
 	//Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustAllCloud2);
@@ -213,14 +206,16 @@ void siftProcess::processAll()
 	adjustVec2.clear();
 	adjustCloud1->clear();
 	adjustCloud2->clear();
-	adjustAllCloud1->clear();
-	adjustAllCloud2->clear();
 	adjustAllRoughCloud1->clear();
 	finalCloud->clear();
 	adjustSampleCloud1->clear();
 	adjustSampleCloud2->clear();
 	adjustCloudVec1.clear();
 	adjustCloudVec2.clear();
+	sampleCloud1->clear();
+	sampleCloud2->clear();
+	sampleVec1.clear();
+	sampleVec2.clear();
 	
 }
 
@@ -1073,4 +1068,19 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr siftProcess::getSampleCloud(pcl::PointCloud<
 
 	}
 	return cloud;
+}
+//从点云中得到序列
+std::vector<Pt3> siftProcess::getVecFromCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
+{
+	std::vector<Pt3> cloudVector;
+	cloudVector.clear();
+	for (size_t i = 0; i < cloud->points.size(); i++)
+	{
+		double x = cloud->points[i].x;
+		double y = cloud->points[i].y;
+		double z = cloud->points[i].z;
+		Pt3 thePt(x, y, z);
+		cloudVector.push_back(thePt);
+	}
+	return cloudVector;
 }

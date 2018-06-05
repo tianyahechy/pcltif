@@ -111,6 +111,8 @@ public:
 		std::vector<Pt3>& colinersOfTheZoneVec2);
 	//选取一部分点云进行处理
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getSampleCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr originalCloud, float ratioOfDataSize = 0.4 );
+	//从点云中得到序列
+	std::vector<Pt3> getVecFromCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
 private:
 
 	std::string _strImageFile1Name32bit;				//32位图像1名称
