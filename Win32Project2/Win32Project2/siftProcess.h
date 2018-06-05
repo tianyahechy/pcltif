@@ -125,6 +125,8 @@ private:
 	//pcl处理部分
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud1;		//第一个点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud2;		//第二个点云
+	std::vector<Pt3> _cloud1Vector;						//第一个点云坐标序列
+	std::vector<Pt3> _cloud2Vector;						//第二个点云坐标序列
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud1;	//第一个内点点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud2;	//第二个内点点云
 	std::vector<Pt3> _corlinerPointVec1InPCL;			// 第一幅源图像的PCL三维内点序列

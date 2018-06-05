@@ -13,14 +13,31 @@ siftProcess::siftProcess(int widthRoil, int heightRoil,
 	util::getTifParameterFromTifName(_strImageFile1Name32bit, _tifParameter1);
 	util::getTifParameterFromTifName(_strImageFile2Name32bit, _tifParameter2);
 
+	_cloud1Vector.clear();
+	_cloud2Vector.clear();
 	pcl::PCDReader reader;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1(new pcl::PointCloud<pcl::PointXYZ>);
 	_cloud1 = cloud1;
 	reader.read(strInputPCDName1, *_cloud1);
+	for (size_t i = 0; i < cloud1->points.size(); i++)
+	{
+		double x = cloud1->points[i].x;
+		double y = cloud1->points[i].y;
+		double z = cloud1->points[i].z;
+		Pt3 thePt(x, y, z);
+		_cloud1Vector.push_back(thePt);
+	}
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
 	_cloud2 = cloud2;
 	reader.read(strInputPCDName2, *_cloud2);
-
+	for (size_t i = 0; i < cloud2->points.size(); i++)
+	{
+		double x = cloud2->points[i].x;
+		double y = cloud2->points[i].y;
+		double z = cloud2->points[i].z;
+		Pt3 thePt(x, y, z);
+		_cloud2Vector.push_back(thePt);
+	}
 	_roughMatrix.Identity();
 
 	_corlinerPointVec1InPCL.clear();
@@ -47,6 +64,8 @@ siftProcess::~siftProcess()
 	}
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
+	_cloud1Vector.clear();
+	_cloud2Vector.clear();
 }
 
 //处理所有步骤
@@ -128,7 +147,6 @@ void siftProcess::processAll()
 	}
 	fclose(fp_cor_inliers_ptr);
 
-
 	//3,从三维坐标转换为点云
 	_colinerCloud1 = this->getPointCloudFrom3dVec(_corlinerPointVec1InPCL);
 	_colinerCloud2 = this->getPointCloudFrom3dVec(_corlinerPointVec2InPCL);
@@ -157,24 +175,37 @@ void siftProcess::processAll()
 	std::cout << "输出粗配准矩阵" << std::endl;
 	std::cout << _roughMatrix << std::endl;
 	//根据粗配准矩阵得出粗配准点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud1 = this->getPointCloudFromPointCloudAndDeltaXYZ(_cloud1, minX, minY, minZ);
+	
+	//从整块点云vector中得到调整后的vector
+	double minX2 = 0;
+	double minY2 = 0;
+	double minZ2 = 0;
+	//先计算调整后的序列
+	std::vector<Pt3> adjustCloudVec1;
+	adjustCloudVec1.clear();
+	std::vector<Pt3> adjustCloudVec2;
+	adjustCloudVec2.clear();
+	this->ajustVecByMinXYZ(_cloud1Vector, _cloud2Vector, adjustCloudVec1, adjustCloudVec2, minX2, minY2, minZ2);
+
 	//选取一部分点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud1 = this->getSampleCloud(adjustAllCloud1, 0.1);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud2 = this->getPointCloudFromPointCloudAndDeltaXYZ(_cloud2, minX, minY, minZ);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud2 = this->getSampleCloud(adjustAllCloud2, 0.1);
+
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud1 = this->getPointCloudFrom3dVec(adjustCloudVec1);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud1 = this->getSampleCloud(adjustAllCloud1, 0.1);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllCloud2 = this->getPointCloudFrom3dVec(adjustCloudVec2);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud2 = this->getSampleCloud(adjustAllCloud2, 0.1);
 	//pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustAllCloud1, _roughMatrix);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(sampleCloud1, _roughMatrix);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustSampleCloud1, _roughMatrix);
 	pcl::io::savePCDFile("e:\\test\\adjustRoughCloud.pcd", *adjustAllRoughCloud1);
 
 	//6，用icp得出精配准矩阵
 	//Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustAllCloud2);
-	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, sampleCloud2);
+	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustSampleCloud2);
 	//输出最终矩阵
 	std::cout << "输出精配准矩阵" << std::endl;
 	std::cout << detailMatrix << std::endl;
 
 	//7,点云平移回来
-	pcl::PointCloud<pcl::PointXYZ>::Ptr finalCloud = this->getCloudFromAdjustCloudAndMinXYZ(adjustAllRoughCloud1, minX, minY, minZ);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr finalCloud = this->getCloudFromAdjustCloudAndMinXYZ(adjustAllRoughCloud1, minX2, minY2, minZ2);
 	pcl::io::savePCDFile("e:\\test\\finalCloud.pcd", *finalCloud);
 	
 	//8，清理
@@ -186,8 +217,10 @@ void siftProcess::processAll()
 	adjustAllCloud2->clear();
 	adjustAllRoughCloud1->clear();
 	finalCloud->clear();
-	sampleCloud1->clear();
-	sampleCloud2->clear();
+	adjustSampleCloud1->clear();
+	adjustSampleCloud2->clear();
+	adjustCloudVec1.clear();
+	adjustCloudVec2.clear();
 	
 }
 
@@ -799,9 +832,9 @@ Eigen::Matrix4f siftProcess::ICPRegistration(pcl::PointCloud<pcl::PointXYZ>::Ptr
 
 	//3,setEuclideanFitnessEpsilon， 还有一条收敛条件是均方误差和小于阈值， 停止迭代。
 
-	double correspondenceDistance = 10000;
-	int ICPmaximumIterations = 200;
-	double ICPTransformationEpsilon = 100;
+	double correspondenceDistance = 5000; //10000
+	int ICPmaximumIterations = 2000;//200
+	double ICPTransformationEpsilon = 100;//100
 	//double ICPEuclideanFitnessEpsilon = 0.5;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr finalAdjustPointCloud(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
