@@ -179,7 +179,7 @@ void siftProcess::processAll()
 	adjustCloudVec1.clear();
 	std::vector<Pt3> adjustCloudVec2;
 	adjustCloudVec2.clear();
-	this->ajustVecByMinXYZ(sampleVec2, sampleVec2, adjustCloudVec1, adjustCloudVec2, minX2, minY2, minZ2);
+	this->ajustVecByMinXYZ(sampleVec1, sampleVec2, adjustCloudVec1, adjustCloudVec2, minX2, minY2, minZ2);
 
 	//将选取的点云部分调整一个偏移量
 	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud1 = this->getPointCloudFrom3dVec(adjustCloudVec1);
@@ -191,14 +191,36 @@ void siftProcess::processAll()
 	pcl::io::savePCDFile("e:\\test\\adjustSampleCloud2.pcd", *adjustSampleCloud2);
 
 	//6，用icp得出精配准矩阵
-	//Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustAllCloud2);
-	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustSampleCloud2);
+	//在精配准前再进行一次
+	double minX3 = 0;
+	double minY3 = 0;
+	double minZ3  = 0;
+	//先计算调整后的序列
+
+	std::vector<Pt3> adjustICPRoughCloudVec1 = this->getVecFromCloud(adjustAllRoughCloud1);
+	std::vector<Pt3> adjustICPCloudVec1;
+	adjustICPCloudVec1.clear();
+	std::vector<Pt3> adjustICPCloudVec2;
+	adjustICPCloudVec2.clear();
+	this->ajustVecByMinXYZ(adjustICPRoughCloudVec1, adjustCloudVec2, adjustICPCloudVec1, adjustICPCloudVec2, minX3, minY3, minZ3);
+
+	//将选取的点云部分调整一个偏移量
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustICPSampleCloud1 = this->getPointCloudFrom3dVec(adjustICPCloudVec1);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustICPSampleCloud2 = this->getPointCloudFrom3dVec(adjustICPCloudVec2);
+	pcl::io::savePCDFile("e:\\test\\adjustICPSampleCloud1.pcd", *adjustICPSampleCloud1);
+	pcl::io::savePCDFile("e:\\test\\adjustICPSampleCloud2.pcd", *adjustICPSampleCloud2);
+	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustICPSampleCloud1, adjustICPSampleCloud2);
+	//Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustSampleCloud2);
 	//输出最终矩阵
 	std::cout << "输出精配准矩阵" << std::endl;
 	std::cout << detailMatrix << std::endl;
 
 	//7,点云平移回来
-	pcl::PointCloud<pcl::PointXYZ>::Ptr finalCloud = this->getCloudFromAdjustCloudAndMinXYZ(adjustAllRoughCloud1, minX2, minY2, minZ2);
+	double totalMinX = minX2 + minX3;
+	double totalMinY = minY2 + minY3;
+	double totalMinZ = minZ2 + minZ3;
+	 
+	pcl::PointCloud<pcl::PointXYZ>::Ptr finalCloud = this->getCloudFromAdjustCloudAndMinXYZ(adjustAllRoughCloud1, totalMinX, totalMinY, totalMinZ);
 	pcl::io::savePCDFile("e:\\test\\finalCloud.pcd", *finalCloud);
 	
 	//8，清理
