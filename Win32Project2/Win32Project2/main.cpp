@@ -13,8 +13,8 @@ int main()
 	//提取矩形区域,以供后面的sift匹配，粗配准
 	int xRoi1 = 2000;
 	int yRoi1 = 2000;
-	int widthRoi = 2000;
-	int heightRoi = 100;
+	int widthRoi = 500;
+	int heightRoi = 500;
 
 	std::string strInputTifName1 = "E:\\DEM-2013.tif";
 	std::string strInputTifName2 = "E:\\DEM-2016.tif";

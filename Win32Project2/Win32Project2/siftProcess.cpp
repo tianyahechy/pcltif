@@ -59,13 +59,15 @@ siftProcess::~siftProcess()
 //处理所有步骤
 void siftProcess::processAll()
 {
+	time_t startTime, endTime;
+	time(&startTime);
 	//0，根据.tif名称得到该.tif的各要素
 	int xSize1 = _tifParameter1.xSize;
 	int ySize1 = _tifParameter1.ySize;
 	float ratioX = 0.5;
 	float ratioY = 0.5;
-	int startX = 0.2 * xSize1;
-	int startY = 0.2 * ySize1;
+	int startX = 0.3 * xSize1;
+	int startY = 0.3 * ySize1;
 
 	//1,分区，根据图像的（xSize,ySize,widthRoi,HeightRoi)确定(xroi,yroi,widthRoitrue,heightRoitrue)
 	std::vector<std::vector<zone>> zoneVecVec1 = this->getZoneVecVec(xSize1, ySize1, ratioX, ratioY, startX, startY, _widthRoi, _heightRoi);
@@ -171,7 +173,7 @@ void siftProcess::processAll()
 	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustColinerRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustCloud1, _roughMatrix);
 	std::vector<Pt3> adjustColinerVec1 = this->getVecFromCloud(adjustColinerRoughCloud1);
 	FILE *fpAdjustColiner;
-	fpAdjustColiner = fopen("E:\\test\\fpAdjustColiner.txt", "w");
+	fpAdjustColiner = fopen("E:\\test\\AdjustColiner.txt", "w");
 	fprintf(fpAdjustColiner, "点对序号                         坐标1                            坐标2                            差值\n");
 
 	for (size_t i = 0; i < adjustColinerVec1.size(); i++)
@@ -193,7 +195,10 @@ void siftProcess::processAll()
 
 	}
 	fclose(fpAdjustColiner);
-	
+
+	time(&endTime);
+	double comsumeTime = difftime(endTime, startTime);
+	std::cout << "总共耗费时间：" << comsumeTime << std::endl;
 	//选取一部分点云
 	double ratioSample = 0.1;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud1 = this->getSampleCloud(_cloud1, ratioSample);
