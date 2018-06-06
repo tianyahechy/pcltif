@@ -103,6 +103,8 @@ public:
 		double minX, double minY, double minZ);
 	//分区，根据图像的（xSize,ySize,widthRoi,HeightRoi)确定(xroi,yroi,widthRoitrue,heightRoitrue)
 	std::vector<std::vector<zone>> getZoneVecVec(int xSize, int ySize, int widthRoi, int heightRoi);
+	std::vector<std::vector<zone>> getZoneVecVec(int xSize, int ySize, float ratioX, float ratioY, 
+		int xStart, int yStart, int widthRoi, int heightRoi);
 	//返回第一块区域对应的对应内点三维坐标序列
 	void getColinersFromZone(zone theZone1, 
 		tifParameter tif1, 

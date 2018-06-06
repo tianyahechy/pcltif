@@ -62,9 +62,13 @@ void siftProcess::processAll()
 	//0，根据.tif名称得到该.tif的各要素
 	int xSize1 = _tifParameter1.xSize;
 	int ySize1 = _tifParameter1.ySize;
+	float ratioX = 0.5;
+	float ratioY = 0.5;
+	int startX = 0.2 * xSize1;
+	int startY = 0.2 * ySize1;
 
 	//1,分区，根据图像的（xSize,ySize,widthRoi,HeightRoi)确定(xroi,yroi,widthRoitrue,heightRoitrue)
-	std::vector<std::vector<zone>> zoneVecVec1 = this->getZoneVecVec(xSize1, ySize1, _widthRoi, _heightRoi);
+	std::vector<std::vector<zone>> zoneVecVec1 = this->getZoneVecVec(xSize1, ySize1, ratioX, ratioY, startX, startY, _widthRoi, _heightRoi);
 	//对于每个区域，根据第一幅图的位置计算第二幅图像的起点和宽高
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
@@ -163,6 +167,32 @@ void siftProcess::processAll()
 	std::cout << "输出粗配准矩阵" << std::endl;
 	std::cout << _roughMatrix << std::endl;
 	//根据粗配准矩阵得出粗配准点云
+
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustColinerRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustCloud1, _roughMatrix);
+	std::vector<Pt3> adjustColinerVec1 = this->getVecFromCloud(adjustColinerRoughCloud1);
+	FILE *fpAdjustColiner;
+	fpAdjustColiner = fopen("E:\\test\\fpAdjustColiner.txt", "w");
+	fprintf(fpAdjustColiner, "点对序号                         坐标1                            坐标2                            差值\n");
+
+	for (size_t i = 0; i < adjustColinerVec1.size(); i++)
+	{
+		Pt3 pt1 = adjustColinerVec1[i];
+		float x1 = pt1.x();
+		float y1 = pt1.y();
+		float z1 = pt1.z();
+		Pt3 pt2 = adjustVec2[i];
+		float x2 = pt2.x();
+		float y2 = pt2.y();
+		float z2 = pt2.z();
+
+		float diffX = x2 - x1;
+		float diffY = y2 - y1;
+		float diffZ = z2 - z1;
+		fprintf(fpAdjustColiner, "       %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f  \n",
+			 x1, y1, z1, x2, y2, z2, diffX, diffY, diffZ);
+
+	}
+	fclose(fpAdjustColiner);
 	
 	//选取一部分点云
 	double ratioSample = 0.1;
@@ -968,6 +998,67 @@ std::vector<std::vector<zone>> siftProcess::getZoneVecVec(int xSize, int ySize, 
 			theZone.widthRoi = theWidthRoi;
 			theZone.heightRoi = theHeightRoi;
 			zoneVecVec[j][i] = theZone;
+		}
+
+	}
+	return zoneVecVec;
+
+}
+
+std::vector<std::vector<zone>> siftProcess::getZoneVecVec(int xSize, int ySize, float ratioX, float ratioY, 
+	int xStart, int yStart, int widthRoi, int heightRoi)
+{
+	std::vector<std::vector<zone>> zoneVecVec;
+	zoneVecVec.clear();
+
+	//分块
+	int zoneX = xSize / widthRoi;
+	int zoneY = ySize / heightRoi;
+
+	int minZoneX = xStart / widthRoi;
+	int minZoneY = yStart / heightRoi;
+	int maxZoneX = minZoneX + ratioX * zoneX;
+	int maxZoneY = minZoneY + ratioY * zoneY;
+	if (maxZoneX > zoneX)
+	{
+		maxZoneX = zoneX;
+	}
+	if ( maxZoneY > zoneY )
+	{
+		maxZoneY = zoneY;
+	}
+	std::cout << "minZoneX = " << minZoneX << ", minZoneY = " << minZoneY << std::endl
+		<< "maxZoneX = " << maxZoneX << ",maxZoneY = " << maxZoneY << std::endl;
+	zoneVecVec.resize( maxZoneY - minZoneY );
+	for (size_t j = 0; j < maxZoneY - minZoneY; j++)
+	{
+		zoneVecVec[j].resize(maxZoneX - minZoneX);
+	}
+
+	for (size_t j = minZoneY; j < maxZoneY; j++)
+	{
+		for (size_t i = minZoneX; i < maxZoneX; i++)
+		{
+			int roix = i * widthRoi;
+			int roiy = j * heightRoi;
+			int theWidthRoi = widthRoi;
+			int theHeightRoi = heightRoi;
+			if (roix + theWidthRoi > xSize)
+			{
+				theWidthRoi = xSize - roix;
+			}
+
+			if (roiy + theHeightRoi > ySize)
+			{
+				theHeightRoi = ySize - roiy;
+			}
+
+			zone theZone;
+			theZone.xRoi = roix;
+			theZone.yRoi = roiy;
+			theZone.widthRoi = theWidthRoi;
+			theZone.heightRoi = theHeightRoi;
+			zoneVecVec[j - minZoneY][i - minZoneX] = theZone;
 		}
 
 	}
