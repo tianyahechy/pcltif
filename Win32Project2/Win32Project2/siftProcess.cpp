@@ -145,48 +145,11 @@ void siftProcess::processAll()
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud1.pcd", *_colinerCloud1);
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud2.pcd", *_colinerCloud2);
 
-	
-	//4，计算出进行粗配准的点云，尽可能消除坐标大小在矩阵中乘积的影响,先放缩再平移，
-	double scaleX = 1.0 / 10000;
-	double scaleY = 1.0 / 10000;
-	double scaleZ = 1.0 / 10000;
-	std::vector<Pt3> colinerScaleVector1 = this->adjustVecByScale(_corlinerPointVec1InPCL, scaleX, scaleY, scaleZ);
-	std::vector<Pt3> colinerScaleVector2 = this->adjustVecByScale(_corlinerPointVec2InPCL, scaleX, scaleY, scaleZ);
-
-	//根据调整后的序列得到调整后的点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustCloud1 = this->getPointCloudFrom3dVec(colinerScaleVector1);
-	pcl::io::savePCDFile("e:\\test\\adjustCloud1.pcd", *adjustCloud1);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustCloud2 = this->getPointCloudFrom3dVec(colinerScaleVector2);
-	pcl::io::savePCDFile("e:\\test\\adjustCloud2.pcd", *adjustCloud2);
-
 	//5，使用pcl的算法得出粗配准矩阵
-	this->computeRoughMatrix(adjustCloud1, adjustCloud2,_cor_inliers_ptr);
+	this->computeRoughMatrix(_colinerCloud1, _colinerCloud2, _cor_inliers_ptr);
 	//输出粗配准矩阵
 	std::cout << "输出粗配准矩阵" << std::endl;
 	std::cout << _roughMatrix << std::endl;
-	//Eigen::Matrix4f deltaMatrix;
-	///deltaMatrix << 0, 0, 0, 100, 0, 0, 0, 200, 0, 0, 0, 300, 0, 0, 0, 400;
-	//std::cout << deltaMatrix << std::endl;
-	for (size_t j = 0; j < 4; j++)
-	{
-		for (int i = 0; i < 4; i++)
-		{
-			std::cout << "_roughMatrix("<<j<<","<< i<<")=" << _roughMatrix(j, i)  <<",";
-		}
-
-		std::cout << std::endl;
-	}
-	for (size_t j = 0; j < 3; j++)
-	{
-		std::cout << "_roughMatrix(" << j << ",3 )=" << _roughMatrix(j, 3) / scaleX << ",";
-	}
-	std::cout << std::endl;
-	_roughMatrix(0, 3) = _roughMatrix(0, 3) / scaleX;
-	_roughMatrix(1, 3) = _roughMatrix(1, 3) / scaleY;
-	_roughMatrix(2, 3) = _roughMatrix(2, 3) / scaleZ;
-	std::cout << "变换后粗配准矩阵:" << std::endl;
-	std::cout << _roughMatrix << std::endl;
-	//std::cout << _roughMatrix+deltaMatrix << std::endl;
 	//根据粗配准矩阵得出粗配准点云
 
 	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustColinerRoughCloud1 = this->getRoughPointCloudFromMatrix(_colinerCloud1, _roughMatrix);
@@ -220,10 +183,6 @@ void siftProcess::processAll()
 	std::cout << "总共耗费时间：" << comsumeTime << std::endl;
 
 	//8，清理
-	adjustCloud1->clear();
-	adjustCloud2->clear();
-	colinerScaleVector1.clear();
-	colinerScaleVector2.clear();
 	adjustColinerVec1.clear();
 	
 }
