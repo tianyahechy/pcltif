@@ -1246,7 +1246,7 @@ namespace util
 		theTifParameter.xResolution = xResolution;
 		theTifParameter.yResolution = yResolution;
 		theTifParameter.leftTopX = topLeftX;
-		theTifParameter.leftTopY = topLeftX;
+		theTifParameter.leftTopY = topLeftY;
 
 	}
 
@@ -1272,14 +1272,13 @@ namespace util
 
 		double topLeftXRoi = topLeftX1 + xResolution1 * xRoi1;
 		double topLeftYRoi = topLeftY1 + yResolution1 * yRoi1;
-		int xID = (topLeftXRoi - topLeftX2) / xResolution2;
-		int yID = (topLeftYRoi - topLeftY2) / yResolution2;
 
-		//不能超过阈值
-		int minXID = xID;
-		int minYID = yID;
+		int minXID = (topLeftXRoi - topLeftX2) / xResolution2;
+		int minYID = (topLeftYRoi - topLeftY2) / yResolution2;
+		std::cout << "minYID = " << minYID << std::endl;
 		int maxXID = minXID + widthRoi1;
 		int maxYID = minYID + heightRoi1;
+		//不能超过阈值
 		if (maxXID  > xSize2 - 1)
 		{
 			maxXID = xSize2 - 1;
