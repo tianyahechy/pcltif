@@ -1,5 +1,6 @@
 #include "siftProcess.h"
 #include "math.h"
+#include <algorithm>
 siftProcess::siftProcess(int widthRoil, int heightRoil,
 	std::string strInputTifName1,
 	std::string strInputTifName2,
@@ -14,18 +15,6 @@ siftProcess::siftProcess(int widthRoil, int heightRoil,
 	util::getTifParameterFromTifName(_strImageFile2Name32bit, _tifParameter2);
 
 	
-	_cloud2Vector.clear();
-	pcl::PCDReader reader;
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1(new pcl::PointCloud<pcl::PointXYZ>);
-	_cloud1 = cloud1;
-	reader.read(strInputPCDName1, *_cloud1);
-	_cloud1Vector = this->getVecFromCloud(_cloud1);
-
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
-	_cloud2 = cloud2;
-	reader.read(strInputPCDName2, *_cloud2);
-	_cloud2Vector = this->getVecFromCloud(_cloud2);
-
 	_roughMatrix.Identity();
 
 	_corlinerPointVec1InPCL.clear();
@@ -52,8 +41,6 @@ siftProcess::~siftProcess()
 	}
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
-	_cloud1Vector.clear();
-	_cloud2Vector.clear();
 }
 
 //处理所有步骤
@@ -72,8 +59,11 @@ void siftProcess::processAll()
 	//1,分区，根据图像的（xSize,ySize,widthRoi,HeightRoi)确定(xroi,yroi,widthRoitrue,heightRoitrue)
 	std::vector<std::vector<zone>> zoneVecVec1 = this->getZoneVecVec(xSize1, ySize1, ratioX, ratioY, startX, startY, _widthRoi, _heightRoi);
 	//对于每个区域，根据第一幅图的位置计算第二幅图像的起点和宽高
-	_corlinerPointVec1InPCL.clear();
-	_corlinerPointVec2InPCL.clear();
+	std::vector<Pt3> coliners1InOpenCV;
+	coliners1InOpenCV.clear();
+	std::vector<Pt3> coliners2InOpenCV;
+	coliners2InOpenCV.clear();
+
 
 	for (size_t j = 0; j < zoneVecVec1.size(); j++)
 	{
@@ -101,8 +91,8 @@ void siftProcess::processAll()
 			//将所有内点的三维坐标加入对应点对中
 			for (size_t k = 0; k < colinersOfTheZone1Vec.size(); k++)
 			{
-				_corlinerPointVec1InPCL.push_back(colinersOfTheZone1Vec[k]);
-				_corlinerPointVec2InPCL.push_back(colinersOfTheZone2Vec[k]);
+				coliners1InOpenCV.push_back(colinersOfTheZone1Vec[k]);
+				coliners2InOpenCV.push_back(colinersOfTheZone2Vec[k]);
 			}
 
 			colinersOfTheZone1Vec.clear();
@@ -110,8 +100,16 @@ void siftProcess::processAll()
 
 		}
 	}
-	
+	//2.0再过滤一次点对
+	float ratioFilter = 0.9;
+	_corlinerPointVec1InPCL.clear();
+	_corlinerPointVec2InPCL.clear();
+	this->filterColiner(coliners1InOpenCV, coliners2InOpenCV, _corlinerPointVec1InPCL, _corlinerPointVec2InPCL, ratioFilter);
+	coliners1InOpenCV.clear();
+	coliners2InOpenCV.clear();
+
 	//2计算点对
+	
 	int sizeofColiner = _corlinerPointVec1InPCL.size();
 	_cor_inliers_ptr = this->computeMiniCorrisponces(sizeofColiner);
 	std::cout << "cor_inliers_ptr个数:" << _cor_inliers_ptr->size() << std::endl;
@@ -147,20 +145,18 @@ void siftProcess::processAll()
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud1.pcd", *_colinerCloud1);
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud2.pcd", *_colinerCloud2);
 
-	//4，计算出进行粗配准的点云，尽可能消除坐标大小在矩阵中乘积的影响
-	double minX = 0;
-	double minY = 0;
-	double minZ = 0;
-	//先计算调整后的序列
-	std::vector<Pt3> adjustVec1;
-	adjustVec1.clear();
-	std::vector<Pt3> adjustVec2;
-	adjustVec2.clear();
-	this->ajustVecByMinXYZ(_corlinerPointVec1InPCL, _corlinerPointVec2InPCL, adjustVec1, adjustVec2, minX, minY, minZ);
+	
+	//4，计算出进行粗配准的点云，尽可能消除坐标大小在矩阵中乘积的影响,先放缩再平移，
+	double scaleX = 1.0 / 10000;
+	double scaleY = 1.0 / 10000;
+	double scaleZ = 1.0 / 10000;
+	std::vector<Pt3> colinerScaleVector1 = this->adjustVecByScale(_corlinerPointVec1InPCL, scaleX, scaleY, scaleZ);
+	std::vector<Pt3> colinerScaleVector2 = this->adjustVecByScale(_corlinerPointVec2InPCL, scaleX, scaleY, scaleZ);
+
 	//根据调整后的序列得到调整后的点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustCloud1 = this->getPointCloudFrom3dVec(adjustVec1);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustCloud1 = this->getPointCloudFrom3dVec(colinerScaleVector1);
 	pcl::io::savePCDFile("e:\\test\\adjustCloud1.pcd", *adjustCloud1);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustCloud2 = this->getPointCloudFrom3dVec(adjustVec2);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustCloud2 = this->getPointCloudFrom3dVec(colinerScaleVector2);
 	pcl::io::savePCDFile("e:\\test\\adjustCloud2.pcd", *adjustCloud2);
 
 	//5，使用pcl的算法得出粗配准矩阵
@@ -168,9 +164,32 @@ void siftProcess::processAll()
 	//输出粗配准矩阵
 	std::cout << "输出粗配准矩阵" << std::endl;
 	std::cout << _roughMatrix << std::endl;
+	//Eigen::Matrix4f deltaMatrix;
+	///deltaMatrix << 0, 0, 0, 100, 0, 0, 0, 200, 0, 0, 0, 300, 0, 0, 0, 400;
+	//std::cout << deltaMatrix << std::endl;
+	for (size_t j = 0; j < 4; j++)
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			std::cout << "_roughMatrix("<<j<<","<< i<<")=" << _roughMatrix(j, i)  <<",";
+		}
+
+		std::cout << std::endl;
+	}
+	for (size_t j = 0; j < 3; j++)
+	{
+		std::cout << "_roughMatrix(" << j << ",3 )=" << _roughMatrix(j, 3) / scaleX << ",";
+	}
+	std::cout << std::endl;
+	_roughMatrix(0, 3) = _roughMatrix(0, 3) / scaleX;
+	_roughMatrix(1, 3) = _roughMatrix(1, 3) / scaleY;
+	_roughMatrix(2, 3) = _roughMatrix(2, 3) / scaleZ;
+	std::cout << "变换后粗配准矩阵:" << std::endl;
+	std::cout << _roughMatrix << std::endl;
+	//std::cout << _roughMatrix+deltaMatrix << std::endl;
 	//根据粗配准矩阵得出粗配准点云
 
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustColinerRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustCloud1, _roughMatrix);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustColinerRoughCloud1 = this->getRoughPointCloudFromMatrix(_colinerCloud1, _roughMatrix);
 	std::vector<Pt3> adjustColinerVec1 = this->getVecFromCloud(adjustColinerRoughCloud1);
 	FILE *fpAdjustColiner;
 	fpAdjustColiner = fopen("E:\\test\\AdjustColiner.txt", "w");
@@ -182,12 +201,12 @@ void siftProcess::processAll()
 		float x1 = pt1.x();
 		float y1 = pt1.y();
 		float z1 = pt1.z();
-		Pt3 pt2 = adjustVec2[i];
+		Pt3 pt2 = _corlinerPointVec2InPCL[i];
 		float x2 = pt2.x();
 		float y2 = pt2.y();
 		float z2 = pt2.z();
 
-		float diffX = x2 - x1;
+		float diffX = x2 - x1 ;
 		float diffY = y2 - y1;
 		float diffZ = z2 - z1;
 		fprintf(fpAdjustColiner, "       %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f  \n",
@@ -199,80 +218,13 @@ void siftProcess::processAll()
 	time(&endTime);
 	double comsumeTime = difftime(endTime, startTime);
 	std::cout << "总共耗费时间：" << comsumeTime << std::endl;
-	//选取一部分点云
-	double ratioSample = 0.1;
-	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud1 = this->getSampleCloud(_cloud1, ratioSample);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr sampleCloud2 = this->getSampleCloud(_cloud2, ratioSample);
-	std::vector<Pt3> sampleVec1 = this->getVecFromCloud(sampleCloud1);
-	std::vector<Pt3> sampleVec2 = this->getVecFromCloud(sampleCloud2);
-	//从整块点云vector中得到调整后的vector
-	double minX2 = 0;
-	double minY2 = 0;
-	double minZ2 = 0;
-	//先计算调整后的序列
-	std::vector<Pt3> adjustCloudVec1;
-	adjustCloudVec1.clear();
-	std::vector<Pt3> adjustCloudVec2;
-	adjustCloudVec2.clear();
-	this->ajustVecByMinXYZ(sampleVec1, sampleVec2, adjustCloudVec1, adjustCloudVec2, minX2, minY2, minZ2);
 
-	//将选取的点云部分调整一个偏移量
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud1 = this->getPointCloudFrom3dVec(adjustCloudVec1);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustSampleCloud2 = this->getPointCloudFrom3dVec(adjustCloudVec2);
-
-	//pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustAllCloud1, _roughMatrix);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustAllRoughCloud1 = this->getRoughPointCloudFromMatrix(adjustSampleCloud1, _roughMatrix);
-	pcl::io::savePCDFile("e:\\test\\adjustRoughCloud.pcd", *adjustAllRoughCloud1);
-	pcl::io::savePCDFile("e:\\test\\adjustSampleCloud2.pcd", *adjustSampleCloud2);
-
-	//6，用icp得出精配准矩阵
-	//在精配准前再进行一次
-	double minX3 = 0;
-	double minY3 = 0;
-	double minZ3  = 0;
-	//先计算调整后的序列
-
-	std::vector<Pt3> adjustICPRoughCloudVec1 = this->getVecFromCloud(adjustAllRoughCloud1);
-	std::vector<Pt3> adjustICPCloudVec1;
-	adjustICPCloudVec1.clear();
-	std::vector<Pt3> adjustICPCloudVec2;
-	adjustICPCloudVec2.clear();
-	this->ajustVecByMinXYZ(adjustICPRoughCloudVec1, adjustCloudVec2, adjustICPCloudVec1, adjustICPCloudVec2, minX3, minY3, minZ3);
-
-	//将选取的点云部分调整一个偏移量
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustICPSampleCloud1 = this->getPointCloudFrom3dVec(adjustICPCloudVec1);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustICPSampleCloud2 = this->getPointCloudFrom3dVec(adjustICPCloudVec2);
-	pcl::io::savePCDFile("e:\\test\\adjustICPSampleCloud1.pcd", *adjustICPSampleCloud1);
-	pcl::io::savePCDFile("e:\\test\\adjustICPSampleCloud2.pcd", *adjustICPSampleCloud2);
-	Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustICPSampleCloud1, adjustICPSampleCloud2);
-	//Eigen::Matrix4f detailMatrix = this->ICPRegistration(adjustAllRoughCloud1, adjustSampleCloud2);
-	//输出最终矩阵
-	std::cout << "输出精配准矩阵" << std::endl;
-	std::cout << detailMatrix << std::endl;
-
-	//7,点云平移回来
-	double totalMinX = minX2 + minX3;
-	double totalMinY = minY2 + minY3;
-	double totalMinZ = minZ2 + minZ3;
-	 
-	pcl::PointCloud<pcl::PointXYZ>::Ptr finalCloud = this->getCloudFromAdjustCloudAndMinXYZ(adjustAllRoughCloud1, totalMinX, totalMinY, totalMinZ);
-	pcl::io::savePCDFile("e:\\test\\finalCloud.pcd", *finalCloud);
-	
 	//8，清理
-	adjustVec1.clear();
-	adjustVec2.clear();
 	adjustCloud1->clear();
 	adjustCloud2->clear();
-	adjustAllRoughCloud1->clear();
-	finalCloud->clear();
-	adjustSampleCloud1->clear();
-	adjustSampleCloud2->clear();
-	adjustCloudVec1.clear();
-	adjustCloudVec2.clear();
-	sampleCloud1->clear();
-	sampleCloud2->clear();
-	sampleVec1.clear();
-	sampleVec2.clear();
+	colinerScaleVector1.clear();
+	colinerScaleVector2.clear();
+	adjustColinerVec1.clear();
 	
 }
 
@@ -406,7 +358,7 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 
 	std::cout << "mindist = " << minDist << ",maxDist=" << maxDist << std::endl;
 
-	double ratio = 0.9;
+	double ratio = 0.1;
 	double standardDist = minDist + (maxDist - minDist) * ratio;
 	//输出匹配结果
 	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
@@ -718,6 +670,23 @@ std::vector<uchar> siftProcess::convert32bitPixelVectorTo8bitPixelVector(std::ve
 
 }
 
+//放缩后形成新的序列用于粗配准矩阵调整
+std::vector<Pt3> siftProcess::adjustVecByScale(std::vector<Pt3> inputVec, double scaleX, double scaleY, double scaleZ)
+{
+	std::vector<Pt3> scaleVec;
+	scaleVec.clear();
+	for (size_t i = 0; i < inputVec.size(); i++)
+	{
+		Pt3 thePt = inputVec[i];
+		float theX = thePt.x() * scaleX;
+		float theY = thePt.y() * scaleY;
+		float theZ = thePt.z() * scaleZ;
+		Pt3 newPt(theX, theY, theZ);
+		scaleVec.push_back(newPt);
+
+	}
+	return scaleVec;
+}
 //根据都减去最小值，来计算出进行粗配准的点云，以尽可能消除坐标大小在矩阵中乘积的影响
 void siftProcess::ajustVecByMinXYZ(std::vector<Pt3> inputVec1,
 	std::vector<Pt3> inputVec2,
@@ -1085,7 +1054,6 @@ void siftProcess::getColinersFromZone(zone theZone1, tifParameter tif1, tifParam
 	//1,根据第一幅图的每块分区确定第二副图像的分区
 	zone zone2;
 	util::getZone2FromZone1(theZone1, tif1, tif2, zone2);
-	std::cout << "xRoi2= " << zone2.xRoi << ",yRoi2=" << zone2.yRoi << std::endl;
 	//zone2的区域最小id不能为0
 	int xID2 = zone2.xRoi;
 	int yID2 = zone2.yRoi;
@@ -1201,4 +1169,77 @@ std::vector<Pt3> siftProcess::getVecFromCloud(pcl::PointCloud<pcl::PointXYZ>::Pt
 		cloudVector.push_back(thePt);
 	}
 	return cloudVector;
+}
+
+//将目前点对按照比例获取新点对。
+void siftProcess::filterColiner(std::vector<Pt3> inputVec1, std::vector<Pt3> inputVec2,
+	std::vector<Pt3>& outputVec1, std::vector<Pt3>& outputVec2,
+	float ratioFilter)
+{
+	//1,如果输入序列大小为空，则返回
+	int sizeofVec1 = inputVec1.size();
+	int sizeofVec2 = inputVec2.size();
+	if ( sizeofVec1 == 0 || sizeofVec2 == 0)
+	{
+		return;
+	}
+	//2，计算差值，形成一个序列vecdiff，(vec1,vec2,vecdiff)
+	std::vector<diffVec> diffVecVec;
+	diffVecVec.clear();
+	for (size_t i = 0; i < sizeofVec1; i++)
+	{
+		float diffX = inputVec2[i].x() - inputVec1[i].x();
+		float diffY = inputVec2[i].y() - inputVec1[i].y();
+		float diffZ = inputVec2[i].z() - inputVec1[i].z();
+		Pt3 diffPoint(diffX, diffY, diffZ);
+		Pt3 inputPoint1 = inputVec1[i];
+		Pt3 inputPoint2 = inputVec2[i];
+		diffVec thePoint;
+		thePoint.inputPt1 = inputPoint1;
+		thePoint.inputPt2 = inputPoint2;
+		thePoint.diffPt = diffPoint;
+		diffVecVec.push_back(thePoint);
+	}
+	//2，将vecdiff按照x值排序，筛掉序号倍数ratioFilter以外的值，前后两端
+	std::sort(diffVecVec.begin(), diffVecVec.end(), util::greaterSortX);
+	std::vector<diffVec> diffVecVecX = this->getSortDiffVec(diffVecVec, ratioFilter);
+	diffVecVec.clear();
+	//3，将vecdiff按照y值排序，筛掉序号倍数ratioFilter以外的值，前后两端
+	std::sort(diffVecVecX.begin(), diffVecVecX.end(), util::greaterSortY);
+	std::vector<diffVec> diffVecVecY = this->getSortDiffVec(diffVecVecX, ratioFilter);
+	diffVecVecX.clear();
+
+	//4，将vecdiff按照z值排序，筛掉序号倍数ratioFilter以外的值，前后两端
+	std::sort(diffVecVecY.begin(), diffVecVecY.end(), util::greaterSortZ);
+	std::vector<diffVec> diffVecVecZ = this->getSortDiffVec(diffVecVecY, ratioFilter);
+	diffVecVecY.clear();
+
+	//5，返回过滤后的点对坐标
+	outputVec1.clear();
+	outputVec2.clear();
+	for (size_t i = 0; i < diffVecVecZ.size(); i++)
+	{
+		diffVec theVec = diffVecVecZ[i];
+		Pt3 input1Pt = theVec.inputPt1;
+		Pt3 input2Pt = theVec.inputPt2;
+		outputVec1.push_back(input1Pt);
+		outputVec2.push_back(input2Pt);
+	}
+	diffVecVecZ.clear();
+}
+
+//根据比例计算新的过滤后的vec
+std::vector<diffVec> siftProcess::getSortDiffVec(std::vector<diffVec> inputDiffVec, float ratioFilter)
+{
+	std::vector<diffVec> filterDiffVec;
+	filterDiffVec.clear();
+	int filterSize = inputDiffVec.size() * ratioFilter;
+	int beginID = (inputDiffVec.size() - filterSize) / 2;
+	int endID = beginID + filterSize;
+	for (size_t i = beginID; i < endID; i++)
+	{
+		diffVec theDiff = inputDiffVec[i];
+		filterDiffVec.push_back(theDiff);
+	}
+	return filterDiffVec;
 }

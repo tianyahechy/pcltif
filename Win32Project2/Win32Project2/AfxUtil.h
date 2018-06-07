@@ -94,4 +94,10 @@ namespace util
 	std::vector <float> getSegRasterVecVecFromTif_32bit(const char* strImageName, int xID, int yID, int width, int height);
 	std::vector <float> getSegRasterVecVecFromTif_32bit(const char* strImageName, zone theZone);
 
+	//按x从大到小排列
+	bool greaterSortX(diffVec a, diffVec b);
+	//按y从大到小排列
+	bool greaterSortY(diffVec a, diffVec b);
+	//按z从大到小排列
+	bool greaterSortZ(diffVec a, diffVec b);
 }

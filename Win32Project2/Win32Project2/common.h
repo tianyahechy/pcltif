@@ -191,3 +191,11 @@ struct tifParameter
 	int ySize;
 
 };
+
+//输入和输出和差值的结构
+struct diffVec
+{
+	Pt3 inputPt1;
+	Pt3 inputPt2;
+	Pt3 diffPt;
+};

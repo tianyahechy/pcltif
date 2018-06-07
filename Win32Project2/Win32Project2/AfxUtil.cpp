@@ -1310,4 +1310,20 @@ namespace util
 		zone2.widthRoi = maxXID - minXID;
 		zone2.heightRoi = maxYID - minYID;
 	}
+	
+	//按x从大到小排列
+	bool greaterSortX(diffVec a, diffVec b)
+	{
+		return a.diffPt.x() > b.diffPt.x();
+	}
+	//按y从大到小排列
+	bool greaterSortY(diffVec a, diffVec b)
+	{
+		return a.diffPt.y() > b.diffPt.y();
+	}
+	//按z从大到小排列
+	bool greaterSortZ(diffVec a, diffVec b)
+	{
+		return a.diffPt.z() > b.diffPt.z();
+	}
 }

@@ -83,6 +83,8 @@ public:
 		double& minX,
 		double& minY,
 		double& minZ);
+	//放缩后形成新的序列用于粗配准矩阵调整
+	std::vector<Pt3> adjustVecByScale(std::vector<Pt3> inputVec, double scaleX, double scaleY, double scaleZ);
 	//根据都减去中间值，来计算出进行粗配准的点云，以尽可能消除坐标大小在矩阵中乘积的影响
 	void ajustVecByMidXYZ(std::vector<Pt3> inputVec1,
 		std::vector<Pt3> inputVec2,
@@ -115,6 +117,12 @@ public:
 	pcl::PointCloud<pcl::PointXYZ>::Ptr getSampleCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr originalCloud, float ratioOfDataSize = 0.4 );
 	//从点云中得到序列
 	std::vector<Pt3> getVecFromCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+	//将目前点对按照比例获取新点对。
+	void filterColiner(std::vector<Pt3> inputVec1, std::vector<Pt3> inputVec2, 
+		std::vector<Pt3>& outputVec1, std::vector<Pt3>& outputVec2, 
+		float ratioFilter);
+	//根据比例计算新的过滤后的vec
+	std::vector<diffVec> getSortDiffVec(std::vector<diffVec> inputDiffVec, float ratioFilter);
 private:
 
 	std::string _strImageFile1Name32bit;				//32位图像1名称
@@ -127,10 +135,7 @@ private:
 	//sift处理部分
 	boost::shared_ptr<pcl::Correspondences> _cor_inliers_ptr; //对应点对，用以粗配准
 	//pcl处理部分
-	pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud1;		//第一个点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr _cloud2;		//第二个点云
-	std::vector<Pt3> _cloud1Vector;						//第一个点云坐标序列
-	std::vector<Pt3> _cloud2Vector;						//第二个点云坐标序列
+
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud1;	//第一个内点点云
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _colinerCloud2;	//第二个内点点云
 	std::vector<Pt3> _corlinerPointVec1InPCL;			// 第一幅源图像的PCL三维内点序列
