@@ -289,6 +289,7 @@ bool PCLTif::testPointInTriangle(Vector3 A, Vector3 B, Vector3 C, Vector3 P)
 	return this-> SameSide(A, B, C, P) &&
 		this->SameSide(B, C, A, P) &&
 		this->SameSide(C, A, B, P);
+	
 }
 // Determine whether two vectors v1 and v2 point to the same direction
 // v1 = Cross(AB, AC)

@@ -101,7 +101,7 @@ void siftProcess::processAll()
 		}
 	}
 	//2.0再过滤一次点对
-	float ratioFilter = 0.5;
+	float ratioFilter = 0.4;
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
 	this->filterColiner(coliners1InOpenCV, coliners2InOpenCV, _corlinerPointVec1InPCL, _corlinerPointVec2InPCL, ratioFilter);
