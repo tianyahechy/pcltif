@@ -23,6 +23,7 @@ int main()
 	
 	siftProcess *theProcess = new siftProcess(widthRoi, heightRoi, strInputTifName1, strInputTifName2, strInputPCDName1, strInputPCDName2);
 	theProcess->processAll();
+	
 	return 0;
 
 }

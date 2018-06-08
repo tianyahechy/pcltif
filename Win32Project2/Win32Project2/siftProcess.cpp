@@ -101,7 +101,7 @@ void siftProcess::processAll()
 		}
 	}
 	//2.0再过滤一次点对
-	float ratioFilter = 0.9;
+	float ratioFilter = 0.5;
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
 	this->filterColiner(coliners1InOpenCV, coliners2InOpenCV, _corlinerPointVec1InPCL, _corlinerPointVec2InPCL, ratioFilter);
@@ -317,7 +317,7 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 
 	std::cout << "mindist = " << minDist << ",maxDist=" << maxDist << std::endl;
 
-	double ratio = 0.1;
+	double ratio = 0.9;
 	double standardDist = minDist + (maxDist - minDist) * ratio;
 	//输出匹配结果
 	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
