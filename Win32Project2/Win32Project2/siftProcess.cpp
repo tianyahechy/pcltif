@@ -11,10 +11,11 @@ siftProcess::siftProcess(int widthRoil, int heightRoil,
 	_heightRoi = heightRoil;
 	_strImageFile1Name32bit = strInputTifName1;
 	_strImageFile2Name32bit = strInputTifName2;
+	_strInputPCDName1 = strInputPCDName1;
+	_strInputPCDName2 = strInputPCDName2;
 	util::getTifParameterFromTifName(_strImageFile1Name32bit, _tifParameter1);
 	util::getTifParameterFromTifName(_strImageFile2Name32bit, _tifParameter2);
 
-	
 	_roughMatrix.Identity();
 
 	_corlinerPointVec1InPCL.clear();
@@ -64,7 +65,6 @@ void siftProcess::processAll()
 	std::vector<Pt3> coliners2InOpenCV;
 	coliners2InOpenCV.clear();
 
-
 	for (size_t j = 0; j < zoneVecVec1.size(); j++)
 	{
 		for (size_t i = 0; i < zoneVecVec1[j].size(); i++)
@@ -101,15 +101,35 @@ void siftProcess::processAll()
 		}
 	}
 	//2.0再过滤一次点对
-	float ratioFilter = 0.4;
+	float ratioFilter = 0.8;
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
 	this->filterColiner(coliners1InOpenCV, coliners2InOpenCV, _corlinerPointVec1InPCL, _corlinerPointVec2InPCL, ratioFilter);
 	coliners1InOpenCV.clear();
 	coliners2InOpenCV.clear();
+	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
+	fprintf(fp, "firstID        secondID                第一个坐标                       第二个坐标                            \n");
+
+	for (size_t i = 0; i < _corlinerPointVec1InPCL.size(); i++)
+	{
+		int idFirst = i;
+		int idSecond = i;
+		
+		float firstPtX = _corlinerPointVec1InPCL[i].x();
+		float firstPtY = _corlinerPointVec1InPCL[i].y();
+		float secondPtX = _corlinerPointVec2InPCL[i].x();
+		float secondPtY = _corlinerPointVec2InPCL[i].y();
+		float diffX = secondPtX - firstPtX;
+		float diffY = secondPtY - firstPtY;
+	
+		fprintf(fp, "    %-15d%-15d%-10.3f%-25.3f%-10.3f%-25.3f%-10.3f%-25.3f%\n",
+			idFirst, idSecond, firstPtX, firstPtY, secondPtX, secondPtY, diffX, diffY);
+	
+	}
+
+	fclose(fp);
 
 	//2计算点对
-	
 	int sizeofColiner = _corlinerPointVec1InPCL.size();
 	_cor_inliers_ptr = this->computeMiniCorrisponces(sizeofColiner);
 	std::cout << "cor_inliers_ptr个数:" << _cor_inliers_ptr->size() << std::endl;
@@ -146,25 +166,48 @@ void siftProcess::processAll()
 	pcl::io::savePCDFile("e:\\test\\_colinerCloud2.pcd", *_colinerCloud2);
 
 	//5，使用pcl的算法得出粗配准矩阵
-	this->computeRoughMatrix(_colinerCloud1, _colinerCloud2, _cor_inliers_ptr);
+	//将源中心点至原点，目标平移同样距离，计算核旋转矩阵，（此时同名点对基本重合）再平移源中点原点这么多距离，到目标点云的位置
+	//计算源内点点云中心点
+	double midCoordX1 = 0;
+	double midCoordY1 = 0;
+	double midCoordZ1 = 0;
+	this->getMidPointOfTheVec(_corlinerPointVec1InPCL, midCoordX1, midCoordY1, midCoordZ1);
+	//将源中心点至原点，目标平移同样距离
+	std::vector<Pt3> transformColiner1Vec = this->getAjustVecFromVecAndDelta(_corlinerPointVec1InPCL, midCoordX1, midCoordY1, midCoordZ1);
+	std::vector<Pt3> transformColiner2Vec = this->getAjustVecFromVecAndDelta(_corlinerPointVec2InPCL, midCoordX1, midCoordY1, midCoordZ1);
+	//从序列计算得到两个点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerCloud1 = this->getPointCloudFrom3dVec(transformColiner1Vec);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerCloud2 = this->getPointCloudFrom3dVec(transformColiner2Vec);
+	//计算两个内点序列中心坐标，计算核心矩阵
+	_roughMatrix = this->computeRoughMatrix(transformColinerCloud1, transformColinerCloud2, _cor_inliers_ptr);
 	//输出粗配准矩阵
-	std::cout << "输出粗配准矩阵" << std::endl;
+	std::cout << "输出粗配准核心矩阵" << std::endl;
 	std::cout << _roughMatrix << std::endl;
-	//根据粗配准矩阵得出粗配准点云
+	// 测试核矩阵
+	//pcl::PointCloud<pcl::PointXYZ>::Ptr adjustColinerRoughCloud1 = this->getRoughPointCloudFromMatrix(_colinerCloud1, _roughMatrix);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerRoughCloud = this->getRoughPointCloudFromMatrix(transformColinerCloud1, _roughMatrix);
+	std::vector<Pt3> transformRoughColinerVec = this->getVecFromCloud(transformColinerRoughCloud);
+	//FILE *fpTransformColiner = fopen("E:\\test\\transformRoughColiner.txt", "w");
+	//fprintf(fpTransformColiner, "点对序号                         坐标1                            坐标2                            差值\n");
 
-	pcl::PointCloud<pcl::PointXYZ>::Ptr adjustColinerRoughCloud1 = this->getRoughPointCloudFromMatrix(_colinerCloud1, _roughMatrix);
-	std::vector<Pt3> adjustColinerVec1 = this->getVecFromCloud(adjustColinerRoughCloud1);
-	FILE *fpAdjustColiner;
-	fpAdjustColiner = fopen("E:\\test\\AdjustColiner.txt", "w");
-	fprintf(fpAdjustColiner, "点对序号                         坐标1                            坐标2                            差值\n");
-
-	for (size_t i = 0; i < adjustColinerVec1.size(); i++)
+	int minSize = transformRoughColinerVec.size();
+	if (minSize > transformColiner2Vec.size())
 	{
-		Pt3 pt1 = adjustColinerVec1[i];
+		minSize = transformColiner2Vec.size();
+	}
+	pcl::PointCloud<pcl::PointXYZ>::Ptr diffCloud(new pcl::PointCloud<pcl::PointXYZ>);
+	diffCloud->clear();
+	diffCloud->height = 1;
+	diffCloud->width = minSize;
+	diffCloud->resize(diffCloud->width * diffCloud->height);
+	for (size_t i = 0; i < minSize; i++)
+	{
+		Pt3 pt1 = transformRoughColinerVec[i];
 		float x1 = pt1.x();
 		float y1 = pt1.y();
 		float z1 = pt1.z();
-		Pt3 pt2 = _corlinerPointVec2InPCL[i];
+		//Pt3 pt2 = _corlinerPointVec2InPCL[i];
+		Pt3 pt2 = transformColiner2Vec[i];
 		float x2 = pt2.x();
 		float y2 = pt2.y();
 		float z2 = pt2.z();
@@ -172,19 +215,30 @@ void siftProcess::processAll()
 		float diffX = x2 - x1 ;
 		float diffY = y2 - y1;
 		float diffZ = z2 - z1;
-		fprintf(fpAdjustColiner, "       %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f  \n",
-			 x1, y1, z1, x2, y2, z2, diffX, diffY, diffZ);
+
+		diffCloud->points[i].x = diffX;
+		diffCloud->points[i].y = diffY;
+		diffCloud->points[i].z = diffZ;
+
+		//fprintf(fpTransformColiner, "       %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f  \n",
+			// x1, y1, z1, x2, y2, z2, diffX, diffY, diffZ);
 
 	}
-	fclose(fpAdjustColiner);
+	//fclose(fpTransformColiner);
+	pcl::io::savePCDFile("E:\\test\\diff.pcd", *diffCloud);
+	diffCloud->clear();
 
 	time(&endTime);
 	double comsumeTime = difftime(endTime, startTime);
 	std::cout << "总共耗费时间：" << comsumeTime << std::endl;
 
 	//8，清理
-	adjustColinerVec1.clear();
-	
+	transformColiner1Vec.clear();
+	transformColiner2Vec.clear();
+	transformColinerCloud1->clear();
+	transformColinerCloud2->clear();
+	transformColinerRoughCloud->clear();
+	transformRoughColinerVec.clear();
 }
 
 //根据粗配准矩阵得出粗配准点云
@@ -317,12 +371,9 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 
 	std::cout << "mindist = " << minDist << ",maxDist=" << maxDist << std::endl;
 
-	double ratio = 0.9;
+	double ratio = 0.1;
 	double standardDist = minDist + (maxDist - minDist) * ratio;
 	//输出匹配结果
-	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
-	fprintf(fp, "firstID        secondID                第一个坐标                       第二个坐标                            坐标差值\n");
-
 	for (size_t i = 0; i < matchesVectorInOpenCV.size(); i++)
 	{
 		int idFirst = matchesVectorInOpenCV[i].queryIdx;
@@ -346,13 +397,11 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 			//内点
 			corlinerPointVec1InOpenCVOfTheZone.push_back(ptFirst);
 			corlinerPointVec2InOpenCVOfTheZone.push_back(ptSecond);
-			fprintf(fp, "    %-15d%-15d%-10.3f%-25.3f%-10.3f%-25.3f%-10.3f%-25.3f%-25.3f\n",
-				idFirst, idSecond, firstPtX, firstPtY, secondPtX, secondPtY, diffX, diffY, theDistance);
+			
 		}
 	
 	}
 
-	fclose(fp);
 
 }
 //对应点对从局部坐标得到指定tif的全局坐标和相应序号
@@ -417,14 +466,15 @@ cv::Mat siftProcess::getOpenCVImgFrom8bitVec(std::vector<uchar> rastervec8Bit, z
 	return srcImage;
 }
 //计算粗配准矩阵
-void siftProcess::computeRoughMatrix(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1, 
+Eigen::Matrix4f siftProcess::computeRoughMatrix(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1, 
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2, 
 	boost::shared_ptr<pcl::Correspondences> cor)
 {
-	
+	Eigen::Matrix4f theMatrix;
 	pcl::registration::TransformationEstimationSVD<pcl::PointXYZ, pcl::PointXYZ> trans_east;
 	//trans_east.estimateRigidTransformation(*_colinerCloud1, *_colinerCloud2, *_cor_inliers_ptr, _roughMatrix);
-	trans_east.estimateRigidTransformation(*cloud1, *cloud2, *cor, _roughMatrix);
+	trans_east.estimateRigidTransformation(*cloud1, *cloud2, *cor, theMatrix);
+	return theMatrix;
 }
 
 //通过三维坐标序列转换为点云
@@ -1201,4 +1251,58 @@ std::vector<diffVec> siftProcess::getSortDiffVec(std::vector<diffVec> inputDiffV
 		filterDiffVec.push_back(theDiff);
 	}
 	return filterDiffVec;
+}
+
+
+//计算序列的中心点
+void siftProcess::getMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoordX1, double &midCoordY1, double &midCoordZ1)
+{
+	//判断输入序列是否为0，0则返回
+	int theSize = inputVec.size();
+	if ( theSize == 0 )
+	{
+		return;
+	}
+	//遍历输入序列的各个坐标点，计算出坐标xyz最大值和最小值
+	double minX = inputVec[0].x();
+	double minY = inputVec[0].y();
+	double minZ = inputVec[0].z();
+	double maxX = inputVec[0].x();
+	double maxY = inputVec[0].y();
+	double maxZ = inputVec[0].z();
+	for (size_t i = 0; i < theSize; i++)
+	{
+		double theX = inputVec[i].x();
+		double theY = inputVec[i].y();
+		double theZ = inputVec[i].z();
+		if (theX > maxX)
+		{
+			maxX = theX;
+		}
+		if (theX < minX)
+		{
+			minX = theX;
+		}
+		if (theY > maxY)
+		{
+			maxY = theY;
+		}
+		if (theY < minY)
+		{
+			minY = theY;
+		}
+		if (theZ > maxZ)
+		{
+			maxZ = theZ;
+		}
+		if (theZ < minZ)
+		{
+			minZ = theZ;
+		}
+	}
+	//根据最小值和最大值，平均得到中值
+	midCoordX1 = (minX + maxX) / 2;
+	midCoordY1 = (minY + maxY) / 2;
+	midCoordZ1 = (minZ + maxZ) / 2;
+
 }

@@ -59,7 +59,7 @@ public:
 		double deltaX, double deltaY, double deltaZ);
 
 	//得出粗配准矩阵
-	void computeRoughMatrix(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1, 
+	Eigen::Matrix4f computeRoughMatrix(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1, 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2,
 		boost::shared_ptr<pcl::Correspondences> cor);
 	//求差值点云
@@ -93,6 +93,10 @@ public:
 		double& midX,
 		double& midY,
 		double& midZ);
+
+	//计算序列的中心点
+	void getMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoordX1, double &midCoordY1, double &midCoordZ1);
+
 	//计算出给定vector的最大最小x,y,z值
 	void getMinXYZFromVec(std::vector<Pt3> vec, double& minX, double& minY, double& minZ);
 	//计算调整后的序列
@@ -141,6 +145,11 @@ private:
 	std::vector<Pt3> _corlinerPointVec1InPCL;			// 第一幅源图像的PCL三维内点序列
 	std::vector<Pt3> _corlinerPointVec2InPCL;			// 第二幅源图像的PCL三维内点序列
 	Eigen::Matrix4f _roughMatrix;
+
+	//点云配准部分
+	std::string _strInputPCDName1;						//第一个点云文件名称
+	std::string _strInputPCDName2;						//第二个点云文件名称
+
 
 };
 

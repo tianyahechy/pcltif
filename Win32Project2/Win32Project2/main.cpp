@@ -10,6 +10,7 @@ struct pt3Int
 
 int main()
 {
+	
 	//提取矩形区域,以供后面的sift匹配，粗配准
 	int xRoi1 = 2000;
 	int yRoi1 = 2000;
