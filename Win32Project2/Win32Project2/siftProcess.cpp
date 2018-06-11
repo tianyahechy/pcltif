@@ -101,7 +101,7 @@ void siftProcess::processAll()
 		}
 	}
 	//2.0再过滤一次点对
-	float ratioFilter = 0.8;
+	float ratioFilter = 0.3;
 	_corlinerPointVec1InPCL.clear();
 	_corlinerPointVec2InPCL.clear();
 	this->filterColiner(coliners1InOpenCV, coliners2InOpenCV, _corlinerPointVec1InPCL, _corlinerPointVec2InPCL, ratioFilter);
@@ -171,7 +171,7 @@ void siftProcess::processAll()
 	double midCoordX1 = 0;
 	double midCoordY1 = 0;
 	double midCoordZ1 = 0;
-	this->getMidPointOfTheVec(_corlinerPointVec1InPCL, midCoordX1, midCoordY1, midCoordZ1);
+	this->getWeightedmeanMidPointOfTheVec(_corlinerPointVec1InPCL, midCoordX1, midCoordY1, midCoordZ1);
 	//将源中心点至原点，目标平移同样距离
 	std::vector<Pt3> transformColiner1Vec = this->getAjustVecFromVecAndDelta(_corlinerPointVec1InPCL, midCoordX1, midCoordY1, midCoordZ1);
 	std::vector<Pt3> transformColiner2Vec = this->getAjustVecFromVecAndDelta(_corlinerPointVec2InPCL, midCoordX1, midCoordY1, midCoordZ1);
@@ -366,7 +366,7 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 
 	std::cout << "mindist = " << minDist << ",maxDist=" << maxDist << std::endl;
 
-	double ratio = 0.1;
+	double ratio = 0.9;
 	double standardDist = minDist + (maxDist - minDist) * ratio;
 	//输出匹配结果
 	for (size_t i = 0; i < matchesVectorInOpenCV.size(); i++)
@@ -384,8 +384,8 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 		//如果相似度<最大相似度距离的1/3,则输出sift点
 		float theDistance = matchesVectorInOpenCV[i].distance;
 		bool bDistance = theDistance < standardDist;  //判断相似度是否合适
-		bool bWindowSizeFitX = (diffX < -17) && (diffX > -37 );		//判断过滤窗口x大小是否合适
-		bool bWindowSizeFitY = (diffY < 5) && (diffY > -5);		//判断过滤窗口y大小是否合适
+		bool bWindowSizeFitX = (diffX < -22) && (diffX > -32 );		//判断过滤窗口x大小是否合适
+		bool bWindowSizeFitY = (diffY < 2) && (diffY > -8);		//判断过滤窗口y大小是否合适
 
 		if (bDistance && bWindowSizeFitX && bWindowSizeFitY)
 		{	
@@ -1249,7 +1249,7 @@ std::vector<diffVec> siftProcess::getSortDiffVec(std::vector<diffVec> inputDiffV
 }
 
 
-//计算序列的中心点
+//计算序列的中心点(几何平均）
 void siftProcess::getMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoordX1, double &midCoordY1, double &midCoordZ1)
 {
 	//判断输入序列是否为0，0则返回
@@ -1299,5 +1299,35 @@ void siftProcess::getMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoor
 	midCoordX1 = (minX + maxX) / 2;
 	midCoordY1 = (minY + maxY) / 2;
 	midCoordZ1 = (minZ + maxZ) / 2;
+
+}
+
+//计算序列的中心点(加权平均）
+void siftProcess::getWeightedmeanMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoordX1, double &midCoordY1, double &midCoordZ1)
+{
+	//判断输入序列是否为0，0则返回
+	int theSize = inputVec.size();
+	if (theSize == 0)
+	{
+		return;
+	}
+	//计算总和再平均
+	double sumX = 0;
+	double sumY = 0;
+	double sumZ = 0;
+	for (size_t i = 0; i < theSize; i++)
+	{
+		double theX = inputVec[i].x();
+		double theY = inputVec[i].y();
+		double theZ = inputVec[i].z();
+		
+		sumX += theX;
+		sumY += theY;
+		sumZ += theZ;
+	}
+	//根据最小值和最大值，平均得到中值
+	midCoordX1 = sumX / theSize;
+	midCoordY1 = sumY / theSize;
+	midCoordZ1 = sumZ / theSize;
 
 }

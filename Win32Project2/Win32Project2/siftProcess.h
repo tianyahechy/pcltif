@@ -94,8 +94,10 @@ public:
 		double& midY,
 		double& midZ);
 
-	//计算序列的中心点
+	//计算序列的中心点（几何平均）
 	void getMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoordX1, double &midCoordY1, double &midCoordZ1);
+	//计算序列的中心点（加权平均）
+	void getWeightedmeanMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoordX1, double &midCoordY1, double &midCoordZ1);
 
 	//计算出给定vector的最大最小x,y,z值
 	void getMinXYZFromVec(std::vector<Pt3> vec, double& minX, double& minY, double& minZ);
