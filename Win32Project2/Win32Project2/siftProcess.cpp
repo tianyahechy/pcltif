@@ -133,8 +133,7 @@ void siftProcess::processAll()
 	int sizeofColiner = _corlinerPointVec1InPCL.size();
 	_cor_inliers_ptr = this->computeMiniCorrisponces(sizeofColiner);
 	std::cout << "cor_inliers_ptr个数:" << _cor_inliers_ptr->size() << std::endl;
-	FILE *fp_cor_inliers_ptr;
-	fp_cor_inliers_ptr = fopen("E:\\test\\fp_cor_inliers_ptr2.txt", "w");
+	FILE *fp_cor_inliers_ptr = fopen("E:\\test\\fp_cor_inliers_ptr2.txt", "w");
 	fprintf(fp_cor_inliers_ptr, "点对序号                         坐标1                            坐标2                            差值\n");
 
 	for (size_t i = 0; i < _cor_inliers_ptr->size(); i++)
@@ -184,14 +183,34 @@ void siftProcess::processAll()
 	std::cout << "输出粗配准核心矩阵" << std::endl;
 	std::cout << _roughMatrix << std::endl;
 	// 测试核矩阵
-	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerRoughCloud = this->getRoughPointCloudFromMatrix(transformColinerCloud1, _roughMatrix);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PCDReader reader;
+	reader.read(_strInputPCDName1, *cloud1);
+	reader.read(_strInputPCDName2, *cloud2);
+	std::vector<Pt3> cloudVec1 = this->getVecFromCloud(cloud1);
+	std::vector<Pt3> cloudVec2 = this->getVecFromCloud(cloud2);
+	//将源中心点至原点，目标平移同样距离
+	//计算源内点点云中心点
+	double midCloudCoordX1 = 0;
+	double midCloudCoordY1 = 0;
+	double midCloudCoordZ1 = 0;
+	std::vector<Pt3> transformCloudVec1 = this->getAjustVecFromVecAndDelta(cloudVec1, midCloudCoordX1, midCloudCoordY1, midCloudCoordZ1);
+	std::vector<Pt3> transformCloudVec2 = this->getAjustVecFromVecAndDelta(cloudVec2, midCloudCoordX1, midCloudCoordY1, midCloudCoordZ1);
+	//从序列计算得到两个点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformCloud1 = this->getPointCloudFrom3dVec(transformCloudVec1);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformCloud2 = this->getPointCloudFrom3dVec(transformCloudVec2);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformRoughCloud = this->getRoughPointCloudFromMatrix(transformCloud1, _roughMatrix);
 	//平移回去
-	pcl::PointCloud<pcl::PointXYZ>::Ptr colinerRoughCloud = this->getCloudFromAdjustCloudAndMinXYZ(transformColinerRoughCloud, midCoordX1, midCoordY1, midCoordZ1);
-	std::vector<Pt3> colinerRoughVec = this->getVecFromCloud(colinerRoughCloud);
-	int minSize = colinerRoughVec.size();
-	if (minSize > _corlinerPointVec2InPCL.size())
+	pcl::PointCloud<pcl::PointXYZ>::Ptr roughCloud = this->getCloudFromAdjustCloudAndMinXYZ(transformRoughCloud, 
+		midCloudCoordX1, 
+		midCloudCoordY1, 
+		midCloudCoordZ1);
+	std::vector<Pt3> roughVec = this->getVecFromCloud(roughCloud);
+	int minSize = roughVec.size();
+	if (minSize > cloudVec2.size())
 	{
-		minSize = _corlinerPointVec2InPCL.size();
+		minSize = cloudVec2.size();
 	}
 	pcl::PointCloud<pcl::PointXYZ>::Ptr diffCloud(new pcl::PointCloud<pcl::PointXYZ>);
 	diffCloud->clear();
@@ -200,12 +219,12 @@ void siftProcess::processAll()
 	diffCloud->resize(diffCloud->width * diffCloud->height);
 	for (size_t i = 0; i < minSize; i++)
 	{
-		Pt3 pt1 = colinerRoughVec[i];
+		Pt3 pt1 = roughVec[i];
 		float x1 = pt1.x();
 		float y1 = pt1.y();
 		float z1 = pt1.z();
 		//Pt3 pt2 = _corlinerPointVec2InPCL[i];
-		Pt3 pt2 = _corlinerPointVec2InPCL[i];
+		Pt3 pt2 = cloudVec2[i];
 		float x2 = pt2.x();
 		float y2 = pt2.y();
 		float z2 = pt2.z();
@@ -229,11 +248,19 @@ void siftProcess::processAll()
 	//8，清理
 	transformColiner1Vec.clear();
 	transformColiner2Vec.clear();
+	transformCloudVec1.clear();
+	transformCloudVec2.clear();
+	roughVec.clear();
+	cloudVec1.clear();
+	cloudVec2.clear();
 	transformColinerCloud1->clear();
 	transformColinerCloud2->clear();
-	transformColinerRoughCloud->clear();
-	colinerRoughVec.clear();
-	colinerRoughCloud->clear();
+	transformRoughCloud->clear();
+	roughCloud->clear();
+	transformCloud1->clear();
+	transformCloud2->clear();
+	cloud1->clear();
+	cloud2->clear();
 }
 
 //根据粗配准矩阵得出粗配准点云
@@ -1311,6 +1338,7 @@ void siftProcess::getWeightedmeanMidPointOfTheVec(std::vector<Pt3> inputVec, dou
 	{
 		return;
 	}
+
 	//计算总和再平均
 	double sumX = 0;
 	double sumY = 0;
@@ -1320,14 +1348,184 @@ void siftProcess::getWeightedmeanMidPointOfTheVec(std::vector<Pt3> inputVec, dou
 		double theX = inputVec[i].x();
 		double theY = inputVec[i].y();
 		double theZ = inputVec[i].z();
-		
+
 		sumX += theX;
 		sumY += theY;
 		sumZ += theZ;
+		
 	}
 	//根据最小值和最大值，平均得到中值
 	midCoordX1 = sumX / theSize;
 	midCoordY1 = sumY / theSize;
 	midCoordZ1 = sumZ / theSize;
+	std::cout << "midCoordX1 = " << midCoordX1 << ",midCoordY1 = " << midCoordY1 << ",midCoordZ1 = " << midCoordZ1 << std::endl;
 
+}
+
+
+//计算序列的最大最小点
+void siftProcess::getMinMaxPointOfTheVec(std::vector<Pt3> inputVec, 
+	double &minX, double &maxX, 
+	double &minY, double &maxY,
+	double &minZ, double &maxZ)
+{
+	//判断输入序列是否为0，0则返回
+	int theSize = inputVec.size();
+	if (theSize == 0)
+	{
+		return;
+	}
+	minX = inputVec[0].x();
+	minY = inputVec[0].y();
+	minZ = inputVec[0].z();
+	maxX = inputVec[0].x();
+	maxY = inputVec[0].y();
+	maxZ = inputVec[0].z();
+	//遍历输入序列的各个坐标点，计算出坐标xyz最大值和最小值
+	for (size_t i = 0; i < theSize; i++)
+	{
+		double theX = inputVec[i].x();
+		double theY = inputVec[i].y();
+		double theZ = inputVec[i].z();
+		if (theX > maxX)
+		{
+			maxX = theX;
+		}
+		if (theX < minX)
+		{
+			minX = theX;
+		}
+		if (theY > maxY)
+		{
+			maxY = theY;
+		}
+		if (theY < minY)
+		{
+			minY = theY;
+		}
+		if (theZ > maxZ)
+		{
+			maxZ = theZ;
+		}
+		if (theZ < minZ)
+		{
+			minZ = theZ;
+		}
+	}
+
+}
+//计算序列的中心点（标准差）
+void siftProcess::getSigmaFromTheVec(std::vector<Pt3> inputVec, 
+	double midCoordX1, double midCoordY1, double midCoordZ1,
+	double &sigmaMidX, double &sigmaMidY, double &sigmaMidZ )
+{
+	//判断输入队列是否有值，没有则空
+	int theSize = inputVec.size();
+	if ( theSize == 0)
+	{
+		return;
+	}
+	double sumX = 0;
+	double sumY = 0;
+	double sumZ = 0;
+	for (size_t i = 0; i < theSize; i++)
+	{
+		Pt3 thePt = inputVec[i];
+		double theX = thePt.x();
+		double theY = thePt.y();
+		double theZ = thePt.z();
+		
+		double distanceX2 = (theX - midCoordX1) * (theX - midCoordX1);
+		double distnaceY2 = (theY - midCoordY1) * (theY - midCoordY1);
+		double distnaceZ2 = (theZ - midCoordZ1) * (theZ - midCoordZ1);
+		sumX += distanceX2;
+		sumY += distnaceY2;
+		sumZ += distnaceZ2;
+	}
+
+	//判断
+	sigmaMidX = sqrt(sumX / theSize);
+	sigmaMidY = sqrt(sumY / theSize);
+	sigmaMidZ = sqrt(sumZ / theSize);
+
+}
+
+//计算标准差中心点和相应序列
+void siftProcess::getSigmaMidPointAndVecFromVec(std::vector<Pt3> inputVec,
+	std::vector<Pt3>& outputVec,
+	double &midCoordX,
+	double &midCoordY,
+	double &midCoordZ)
+{
+	//1,先判断输入是否为空，空则返回
+	int sizeofInputVec = inputVec.size();
+	if (sizeofInputVec == 0 )
+	{
+		return;
+	}
+	
+	//2，计算总和的加权平均值，计算偏向几何平均值的左侧或右侧，即大小 
+	double weightMidX = 0;
+	double weightMidY = 0;
+	double weightMidZ = 0;
+	this->getWeightedmeanMidPointOfTheVec(inputVec, weightMidX, weightMidY, weightMidZ );
+	std::cout << "weightMidX =" << weightMidX << ",weightMidY = " << weightMidY << ",weightMidZ = " << weightMidZ << std::endl;
+	//3，计算标准差
+	double sigmaX = 0;
+	double sigmaY = 0;
+	double sigmaZ = 0;
+	this->getSigmaFromTheVec(inputVec,
+		weightMidX, weightMidY, weightMidZ,
+		sigmaX, sigmaY, sigmaZ);
+	std::cout << "sigmaX =" << sigmaX << ",sigmaY = " << sigmaY << ",sigmaZ = " << sigmaZ << std::endl;
+
+	//4,得到取值范围
+	double minSigMaX = weightMidX - sigmaX;
+	double minSigMaY = weightMidY - sigmaY;
+	double minSigMaZ = weightMidZ - sigmaZ;
+	double maxSigMaX = weightMidX + sigmaX;
+	double maxSigMaY = weightMidY + sigmaY;
+	double maxSigMaZ = weightMidZ + sigmaZ;
+
+	//5，将输入序列中，加权平均值正负标准差之外的去掉，
+	outputVec = this->filterSigmaVec(inputVec,
+		minSigMaX, minSigMaY, minSigMaZ, 
+		maxSigMaX, maxSigMaY, maxSigMaZ);
+	//6,再计算加权平均。
+	this->getMidPointOfTheVec(outputVec, midCoordX, midCoordY, midCoordZ);
+
+}
+//得到sigma过滤的序列
+std::vector<Pt3> siftProcess::filterSigmaVec(std::vector<Pt3> inputVec,
+	double minSigMaX, double minSigMaY, double minSigMaZ,
+	double maxSigMaX, double maxSigMaY, double maxSigMaZ)
+{
+	std::vector<Pt3> filterVec;
+	filterVec.clear();
+	//判断是否为空，空则返回
+	int theSize = inputVec.size();
+	if ( theSize == 0 )
+	{
+		filterVec.clear();
+		return filterVec;
+	}
+
+	//遍历，符合条件的加入
+	for (size_t i = 0; i < theSize; i++)
+	{
+		Pt3 thePt = inputVec[i];
+		double theX = thePt.x();
+		double theY = thePt.y();
+		double theZ = thePt.z();
+		bool bX = (theX <= maxSigMaX && theX >= minSigMaX);
+		bool bY = (theY <= maxSigMaY && theY >= minSigMaY);
+		bool bZ = (theZ <= maxSigMaZ && theZ >= minSigMaZ);
+
+		if ( bX && bY && bZ )
+		{
+			filterVec.push_back(thePt);
+		}
+	}
+
+	return filterVec;
 }

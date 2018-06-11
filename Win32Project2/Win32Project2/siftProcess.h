@@ -96,8 +96,28 @@ public:
 
 	//计算序列的中心点（几何平均）
 	void getMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoordX1, double &midCoordY1, double &midCoordZ1);
+	//计算序列的最大最小点
+	void getMinMaxPointOfTheVec(std::vector<Pt3> inputVec, 
+		double &minX, double &maxX,
+		double &minY, double &maxY,
+		double &minZ, double &maxZ);
 	//计算序列的中心点（加权平均）
 	void getWeightedmeanMidPointOfTheVec(std::vector<Pt3> inputVec, double &midCoordX1, double &midCoordY1, double &midCoordZ1);
+
+	//计算序列的中心点（标准差）
+	void getSigmaFromTheVec(std::vector<Pt3> inputVec,
+		double midCoordX1, double midCoordY1, double midCoordZ1,
+		double &sigmaMidX, double &sigmaMidY, double &sigmaMidZ);
+	//得到sigma过滤的序列
+	std::vector<Pt3> filterSigmaVec(std::vector<Pt3> inputVec,
+		double minSigMaX, double minSigMaY, double minSigMaZ,
+		double maxSigMaX, double maxSigMaY, double maxSigMaZ);
+	//计算标准差中心点和相应序列
+	void getSigmaMidPointAndVecFromVec(std::vector<Pt3> inputVec,
+		std::vector<Pt3>& outputVec,
+		double &midCoordX1, 
+		double &midCoordY1, 
+		double &midCoordZ1);
 
 	//计算出给定vector的最大最小x,y,z值
 	void getMinXYZFromVec(std::vector<Pt3> vec, double& minX, double& minY, double& minZ);
