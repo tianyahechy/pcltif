@@ -184,16 +184,14 @@ void siftProcess::processAll()
 	std::cout << "输出粗配准核心矩阵" << std::endl;
 	std::cout << _roughMatrix << std::endl;
 	// 测试核矩阵
-	//pcl::PointCloud<pcl::PointXYZ>::Ptr adjustColinerRoughCloud1 = this->getRoughPointCloudFromMatrix(_colinerCloud1, _roughMatrix);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerRoughCloud = this->getRoughPointCloudFromMatrix(transformColinerCloud1, _roughMatrix);
-	std::vector<Pt3> transformRoughColinerVec = this->getVecFromCloud(transformColinerRoughCloud);
-	//FILE *fpTransformColiner = fopen("E:\\test\\transformRoughColiner.txt", "w");
-	//fprintf(fpTransformColiner, "点对序号                         坐标1                            坐标2                            差值\n");
-
-	int minSize = transformRoughColinerVec.size();
-	if (minSize > transformColiner2Vec.size())
+	//平移回去
+	pcl::PointCloud<pcl::PointXYZ>::Ptr colinerRoughCloud = this->getCloudFromAdjustCloudAndMinXYZ(transformColinerRoughCloud, midCoordX1, midCoordY1, midCoordZ1);
+	std::vector<Pt3> colinerRoughVec = this->getVecFromCloud(colinerRoughCloud);
+	int minSize = colinerRoughVec.size();
+	if (minSize > _corlinerPointVec2InPCL.size())
 	{
-		minSize = transformColiner2Vec.size();
+		minSize = _corlinerPointVec2InPCL.size();
 	}
 	pcl::PointCloud<pcl::PointXYZ>::Ptr diffCloud(new pcl::PointCloud<pcl::PointXYZ>);
 	diffCloud->clear();
@@ -202,12 +200,12 @@ void siftProcess::processAll()
 	diffCloud->resize(diffCloud->width * diffCloud->height);
 	for (size_t i = 0; i < minSize; i++)
 	{
-		Pt3 pt1 = transformRoughColinerVec[i];
+		Pt3 pt1 = colinerRoughVec[i];
 		float x1 = pt1.x();
 		float y1 = pt1.y();
 		float z1 = pt1.z();
 		//Pt3 pt2 = _corlinerPointVec2InPCL[i];
-		Pt3 pt2 = transformColiner2Vec[i];
+		Pt3 pt2 = _corlinerPointVec2InPCL[i];
 		float x2 = pt2.x();
 		float y2 = pt2.y();
 		float z2 = pt2.z();
@@ -220,11 +218,7 @@ void siftProcess::processAll()
 		diffCloud->points[i].y = diffY;
 		diffCloud->points[i].z = diffZ;
 
-		//fprintf(fpTransformColiner, "       %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f  \n",
-			// x1, y1, z1, x2, y2, z2, diffX, diffY, diffZ);
-
 	}
-	//fclose(fpTransformColiner);
 	pcl::io::savePCDFile("E:\\test\\diff.pcd", *diffCloud);
 	diffCloud->clear();
 
@@ -238,7 +232,8 @@ void siftProcess::processAll()
 	transformColinerCloud1->clear();
 	transformColinerCloud2->clear();
 	transformColinerRoughCloud->clear();
-	transformRoughColinerVec.clear();
+	colinerRoughVec.clear();
+	colinerRoughCloud->clear();
 }
 
 //根据粗配准矩阵得出粗配准点云
@@ -390,7 +385,7 @@ void siftProcess::getSIFTFeatureFromOpenCVImage8bit(cv::Mat srcImage1,
 		float theDistance = matchesVectorInOpenCV[i].distance;
 		bool bDistance = theDistance < standardDist;  //判断相似度是否合适
 		bool bWindowSizeFitX = (diffX < -17) && (diffX > -37 );		//判断过滤窗口x大小是否合适
-		bool bWindowSizeFitY = (diffY < 10) && (diffY > -10);		//判断过滤窗口y大小是否合适
+		bool bWindowSizeFitY = (diffY < 5) && (diffY > -5);		//判断过滤窗口y大小是否合适
 
 		if (bDistance && bWindowSizeFitX && bWindowSizeFitY)
 		{	
