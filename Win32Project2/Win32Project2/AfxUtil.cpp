@@ -852,9 +852,9 @@ namespace util
 
 				double value1 = rastervecvec1[i][j].z();
 				double value2 = rastervecvec2[yID2][XID2].z();
-				if (value2 != 0 && value1 != 0)
+				if (value2 != -9999 && value1 != -9999)
 				{
-					double difvalue = value2 - value1 + 140;
+					double difvalue = value2 - value1;
 					Pt3 difPt = Pt3(x, y, difvalue);
 					outputVecVec[yID2][XID2] = difPt;
 

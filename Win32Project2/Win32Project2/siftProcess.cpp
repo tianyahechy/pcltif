@@ -107,7 +107,7 @@ void siftProcess::processAll()
 	this->filterColiner(coliners1InOpenCV, coliners2InOpenCV, _corlinerPointVec1InPCL, _corlinerPointVec2InPCL, ratioFilter);
 	coliners1InOpenCV.clear();
 	coliners2InOpenCV.clear();
-	FILE * fp = fopen("e:\\test\\affineSift.txt", "w");
+	FILE * fp = fopen("e:\\test\\coliner.txt", "w");
 	fprintf(fp, "firstID        secondID                第一个坐标                       第二个坐标                            \n");
 
 	for (size_t i = 0; i < _corlinerPointVec1InPCL.size(); i++)
@@ -195,6 +195,9 @@ void siftProcess::processAll()
 	double midCloudCoordX1 = 0;
 	double midCloudCoordY1 = 0;
 	double midCloudCoordZ1 = 0;
+	this->getMidPointOfTheVec(cloudVec1, midCloudCoordX1, midCloudCoordY1, midCloudCoordZ1);
+
+	//平移源点云至原点
 	std::vector<Pt3> transformCloudVec1 = this->getAjustVecFromVecAndDelta(cloudVec1, midCloudCoordX1, midCloudCoordY1, midCloudCoordZ1);
 	std::vector<Pt3> transformCloudVec2 = this->getAjustVecFromVecAndDelta(cloudVec2, midCloudCoordX1, midCloudCoordY1, midCloudCoordZ1);
 	//从序列计算得到两个点云
