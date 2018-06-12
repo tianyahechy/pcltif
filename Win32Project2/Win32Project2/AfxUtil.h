@@ -56,6 +56,8 @@ namespace util
 	void getDifTifBetweenTwoTifs(const char* strInputTifName1, const char* strInputTifName2, const char* strOutPutTifName);
 	//ÂË²¨.TIF
 	void filterTif(const char* strInputTifName, const char* strOutPutTifName);
+	//¸ù¾ÝãÐÖµÂË²¨.TIF
+	void filterTifByThreshold(const char* strInputTifName, const char* strOutPutTifName, double lowThreshold, double highThreshold);
 	//ÂË²¨µãÔÆ
 	void filterPCD(const char* strInputPCDName, const char* strOutPutPCDName);
 

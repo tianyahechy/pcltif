@@ -921,6 +921,45 @@ namespace util
 		util::createRasterFile(strOutPutTifName, 1, xSize1, ySize1, xResolution1, yResolution1, topLeftX1, topLeftY1);
 		util::UpdateRasterFile(strOutPutTifName, rasterOutput);
 	}
+
+	//根据阈值滤波.TIF
+	void filterTifByThreshold(const char* strInputTifName, const char* strOutPutTifName, double lowThreshold, double highThreshold)
+	{
+		//得到tif文件的坐标vector
+		int xSize1 = 0;
+		int ySize1 = 0;
+		double xResolution1 = 0;
+		double yResolution1 = 0;
+		double topLeftX1 = 0;
+		double topLeftY1 = 0;
+		std::vector<std::vector<Pt3>> rastervecvec1 = util::getRasterVecVecFromTif(strInputTifName,
+			xSize1, ySize1,
+			xResolution1, yResolution1,
+			topLeftX1, topLeftY1);
+		//滤波,将阈值范围内的点设为0
+		for (size_t j = 0; j < rastervecvec1.size(); j++)
+		{
+			for (int i = 0; i < rastervecvec1[j].size(); i++)
+			{
+				Pt3 thePt = rastervecvec1[j][i];
+				double x = thePt.x();
+				double y = thePt.y();
+				double theValue = thePt.z();
+				if ( theValue <= highThreshold && theValue >= lowThreshold )
+				{
+					theValue = 0;
+				}
+				Pt3 newPt(x, y, theValue);
+				rastervecvec1[j][i] = newPt;
+				
+			}
+		}
+
+		//写文件
+		util::createRasterFile(strOutPutTifName, 1, xSize1, ySize1, xResolution1, yResolution1, topLeftX1, topLeftY1);
+		util::UpdateRasterFile(strOutPutTifName, rastervecvec1);
+
+	}
 	//滤波点云
 	void filterPCD(const char* strInputPCDName, const char* strOutPutPCDName)
 	{
