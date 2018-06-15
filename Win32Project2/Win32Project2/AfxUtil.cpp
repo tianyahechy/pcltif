@@ -34,7 +34,7 @@ namespace util
 			std::cout << pszFormat << "支持CreateCopy()方法" << std::endl;
 		}
 
-		//创建输出文件，大小为512*512*3，三个波段8bit的数据
+		//创建输出文件，大小为512*512*3，三个波段32bit的数据
 		GDALDataset * poDS = poDriver->Create(strImageName, xSize, ySize, bandSize, GDT_Float32, NULL);
 		if (poDS == NULL)
 		{
@@ -920,6 +920,10 @@ namespace util
 		ySize1 = row;
 		util::createRasterFile(strOutPutTifName, 1, xSize1, ySize1, xResolution1, yResolution1, topLeftX1, topLeftY1);
 		util::UpdateRasterFile(strOutPutTifName, rasterOutput);
+
+		//清除临时变量
+		rasterOutput.clear();
+		rastervecvec1.clear();
 	}
 
 	//根据阈值滤波.TIF

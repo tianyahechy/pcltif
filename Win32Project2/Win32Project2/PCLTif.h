@@ -14,12 +14,12 @@ public:
 public:
 	//处理过程，将合并这几步
 	void process();
-	//分块处理
-	void process(int quadSize);
 	//根据输入集合求等分插值XYZ坐标
 	void getEqualXYZVectorFromDataSet();
 	//输入数据集合，三角化后输出三角形集合
 	void getTriangleSetFromDataSet();
+	//输入数据集合，三角化后输出三角形集合(用opencl)
+	void getTriangleSetFromDataSetByOpenCL();
 	//根据三角形集合计算出栅格集合，插值
 	void getRasterVec3SetFromTriangleSet();	
 	//根据三角形计算出在该三角形外接矩形的栅格集合，插值
@@ -64,5 +64,8 @@ private:
 	double							_xResolution;	//像素分辨率(X)
 	double							_yResolution;	//像素分辨率(Y)
 	triangleSet						_myTriangleSet;	//三角化后的三角形集合
+
+private:
+	double								_secondOfTriangle; //单纯三角化时间
 };
 

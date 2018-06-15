@@ -1,10 +1,12 @@
 #include "PCLTif.h"
-
+#include "myOpenCL.h"
 PCLTif::PCLTif(std::string strFileName, double xResolution, double yResolution, PCLType theType)
 {
 	_rasterVecVec.clear();
 	_pointCloudDataSet.clear();
 	_myTriangleSet.clear();
+
+	_secondOfTriangle = 0;
 
 	_xResolution = xResolution;
 	_yResolution = yResolution;
@@ -163,6 +165,8 @@ void PCLTif::getEqualXYZVectorFromDataSet()
 void PCLTif::getTriangleSetFromDataSet()
 {
 	//三角化数据集合中的X,Y坐标
+	time_t startTime;			
+	time_t endTime;			
 
 	mapVertexHandleAndPt3 vertexHandleAndPt3Set;
 	vertexHandleAndPt3Set.clear();
@@ -178,7 +182,13 @@ void PCLTif::getTriangleSetFromDataSet()
 		double y = thePt3.y();
 
 		Pt2 xy = Pt2(x, y);
+
+		time(&startTime);
 		Delaunay::Vertex_handle theVertexHandle = tr.insert(xy);
+		time(&endTime);
+		double timeofsetRasterPoint2dTime = difftime(endTime, startTime);
+		_secondOfTriangle += timeofsetRasterPoint2dTime;
+
 		vertexHandleAndPt3Set.insert(pairVertexHandleAndPt3(theVertexHandle, thePt3));
 	}
 
@@ -207,6 +217,125 @@ void PCLTif::getTriangleSetFromDataSet()
 	}
 	vertexHandleAndPt3Set.clear();
 
+}
+
+//输入数据集合，三角化后输出三角形集合(用opencl)
+void PCLTif::getTriangleSetFromDataSetByOpenCL()
+{/*
+	//三角化数据集合中的X,Y坐标
+	time_t startTime;
+	time_t endTime;
+
+	time(&startTime);
+	int sizeOfPointCloud = _pointCloudDataSet.size();
+	std::vector<int> idVector;
+	idVector.clear();
+	std::vector<Pt3> thePt3Vector;
+	thePt3Vector.clear();
+	std::vector<float> xVector;
+	xVector.clear();
+	std::vector<float> yVector;
+	yVector.clear();
+
+	Delaunay tr;
+	pt3Set::iterator iterCurVector3 = _pointCloudDataSet.begin(),
+		iterEndVector3 = _pointCloudDataSet.end();
+	for (; iterCurVector3 != iterEndVector3; iterCurVector3++)
+	{
+		int id = iterCurVector3->first;
+		Pt3 thePt3 = iterCurVector3->second;
+		float x = thePt3.x();
+		float y = thePt3.y();
+
+		idVector.push_back(id);
+		thePt3Vector.push_back(thePt3);
+		xVector.push_back(x);
+		yVector.push_back(y);
+	}
+	std::string strOpenCLFileName = "test.cl";
+	std::string strOpenCLKernalEntry = "hello_kernel";
+	int sizeOfInputType = 2;
+	int sizeOfInputObject = sizeOfPointCloud;
+	int sizeOfEachInputUnit = sizeof(float);
+	std::vector<std::vector<float>> inputVec2;
+	//设定各单元数值
+	inputVec2.clear();
+	inputVec2.resize(sizeOfInputType);
+	for (size_t j = 0; j < sizeOfInputType; j++)
+	{
+		inputVec2[j].resize(sizeOfInputObject);
+	}
+
+	for (size_t i = 0; i < sizeOfInputObject; i++)
+	{
+		inputVec2[0][i] = xVector[i];
+		inputVec2[1][i] = yVector[i];
+	}
+
+	int sizeOfOutputType = 1;
+	int sizeOfOutputObject = sizeOfPointCloud;
+	int sizeOfEachOutputUnit = sizeof(Delaunay::Vertex_handle);
+	std::vector<std::vector<Delaunay::Vertex_handle>> outputVec2;
+	outputVec2.clear();
+	outputVec2.resize(sizeOfOutputType);
+	for (size_t j = 0; j < sizeOfOutputType; j++)
+	{
+		outputVec2[j].resize(sizeOfOutputObject);
+	}
+
+	myOpenCL theOpenCL(strOpenCLFileName,
+		strOpenCLKernalEntry,
+		sizeOfInputType,
+		sizeOfInputObject,
+		sizeOfEachInputUnit,
+		inputVec2,
+		sizeOfOutputType,
+		sizeOfOutputObject,
+		sizeOfEachOutputUnit,
+		outputVec2);
+
+	theOpenCL.process();
+
+	time(&endTime);
+	_secondOfTriangle = difftime(endTime, startTime);
+	std::cout << "纯三角化时间:" << _secondOfTriangle << std::endl;
+	//输出结果
+	std::vector<std::vector<Delaunay::Vertex_handle>>  resultVec = theOpenCL.getResult();
+
+	mapVertexHandleAndPt3 vertexHandleAndPt3Set;
+	vertexHandleAndPt3Set.clear();
+	for (size_t i = 0; i < sizeOfPointCloud; i++)
+	{
+		Delaunay::Vertex_handle theVertexHandle = resultVec[0][i];
+		Pt3 thePt3 = thePt3Vector[i];
+		vertexHandleAndPt3Set.insert(pairVertexHandleAndPt3(theVertexHandle, thePt3));
+	}
+
+	//三角化后的XY，重组带Z值的三角形集合
+	int faceID = 0;	//面的ID
+
+	//std::cout << "输出面包含的顶点:" << std::endl;
+	Delaunay::Finite_faces_iterator faceCur = tr.finite_faces_begin(),
+		faceEnd = tr.finite_faces_end();
+	for (; faceCur != faceEnd; faceCur++)
+	{
+		//根据该面的三个顶点查找Z值
+		std::vector<Pt3> theVector;
+		theVector.clear();
+		theVector.resize(3);
+		for (int i = 0; i < 3; i++)
+		{
+			Delaunay::Vertex_handle theVertexHandle = faceCur->vertex(i);
+			Pt3 thePt3 = vertexHandleAndPt3Set[theVertexHandle];
+			theVector[i] = thePt3;
+
+		}
+
+		_myTriangleSet.insert(trianglePair(faceID, theVector));
+		faceID++;
+	}
+	vertexHandleAndPt3Set.clear();
+	*/
 }
 
 //根据三角形集合计算出栅格集合，插值
@@ -542,10 +671,12 @@ void PCLTif::process()
 	std::cout << "给栅格二维赋值时间" << timeofsetRasterPoint2dTime << std::endl;
 	//三角化数据集合中的X,Y坐标,
 	std::cout << "三角化数据集合中的X,Y坐标,重组带Z值的三角形集合" << std::endl;
-	this->getTriangleSetFromDataSet();
+	//this->getTriangleSetFromDataSet();
+	this->getTriangleSetFromDataSetByOpenCL();
 	time(&triangulationTime);
 	double timeoftriangulationTime = difftime(triangulationTime, setRasterPoint2dTime);
-	std::cout << "三角化时间" << timeoftriangulationTime << std::endl;
+	std::cout << "三角化整体时间" << timeoftriangulationTime << std::endl;
+	std::cout << "纯三角化时间：" << _secondOfTriangle << std::endl;
 	std::cout << "插值：" << std::endl;
 	//根据三角形集合计算出栅格集合，插值
 	this->getRasterVec3SetFromTriangleSet(); 
@@ -554,37 +685,6 @@ void PCLTif::process()
 	std::cout << "插值时间" << timeofchazhiTime << std::endl;
 }
 
-
-//分块处理
-void PCLTif::process( int quadSize )
-{
-	/*
-	int sizeofTotalPointCloudNumber = _pointCloudDataSet.size();
-	int currentPointNumber = 0;
-
-	std::map<int, pt3Set> quadePt3Set;
-	quadePt3Set.clear();
-
-	pt3Set currentPt3Set;
-	currentPt3Set.clear();
-
-	int theQuadID = 0;
-
-	pt3Set::iterator
-		iterCurPt = _pointCloudDataSet.begin(),
-		iterEndPt = _pointCloudDataSet.end();
-	for (; iterCurPt != iterEndPt; iterCurPt++)
-	{
-		currentPt3Set.insert(pt3Pair())
-
-	}
-	//根据输入点集合来等分XYZ间距，得到图像坐标集合vector,并初始化灰度值为0
-	this->getEqualXYZVectorFromDataSet();
-	//三角化数据集合中的X,Y坐标,
-	//根据三角形集合计算出栅格集合，插值
-	this->getRasterVec3SetFromTriangleSet();
-	*/
-}
 //得到点云细节
 PCLDetail PCLTif::getDetailOfthePointCloud()
 {
