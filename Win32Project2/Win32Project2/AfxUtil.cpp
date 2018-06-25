@@ -783,11 +783,24 @@ namespace util
 		time_t prevProcessTime;
 		time_t afterProcessTime;
 		time(&prevProcessTime);
+		//划分区域，如果
+		int startXID = xSize / 2;
+		int startYID = ySize / 2;
+		int widthRoi = 100;
+		int heightRoi = 100;
+		if ( startXID + widthRoi >  xSize )
+		{
+			widthRoi =  xSize - startXID;
+		}
+		if ( startYID + heightRoi > ySize )
+		{
+			heightRoi = ySize - startYID;
+		}
 		recimage_pairs * theRec = new recimage_pairs();
-		theRec->setPointSet(thePCLTif1->getPointSet());
 		theRec->setResolution(xResolution,yResolution);
 		theRec->setTotalRasterVec(rastervec);
 		theRec->setTopLeft(topLeftX, topLeftY);
+		theRec->setPointSet(thePCLTif1->getPointSet(), startXID, startYID, widthRoi, heightRoi);
 		theRec->processBySegment(sizeofSegment);
 		time(&afterProcessTime);
 		double timeofProcess = difftime(afterProcessTime, prevProcessTime);
@@ -795,16 +808,6 @@ namespace util
 
 		//返回更新后的数组
 		std::vector<std::vector<Pt3>> rastervecUpdate = theRec->getRasterVecVec3();
-		std::cout << "生成点云" << std::endl;
-		//生成点云
-		std::string testPCDFile = "E:\\test\\tif\\test.pcd";
-		pcl::PointCloud<pcl::PointXYZ>::Ptr testCloud(new pcl::PointCloud<pcl::PointXYZ>);
-		testCloud->clear();
-		testCloud->width = rastervecUpdate.size();
-		testCloud->height = 1;
-		testCloud->resize(testCloud->width * testCloud->height);
-		pcl::io::savePCDFileASCII(testPCDFile, *testCloud);
-		testCloud->clear();
 		//更新网格文件,
 		time(&preUpdateTif);
 		util::UpdateRasterFile(strOutPutTifName, rastervecUpdate);

@@ -23,8 +23,8 @@ PCLTif::PCLTif(std::string strFileName, double xResolution, double yResolution, 
 
 		std::cout << "总数:" << cloud->points.size() << std::endl;
 		//取十分之一
-		//for (size_t i = 0; i < cloud->points.size(); i++)
-		for (size_t i = cloud->points.size() / 2; i < cloud->points.size() / 2 + 10000; i++)
+		for (size_t i = 0; i < cloud->points.size(); i++)
+		//for (size_t i = cloud->points.size() / 2; i < cloud->points.size() / 2 + 10000; i++)
 		{
 			double x = cloud->points[i].x;
 			double y = cloud->points[i].y;

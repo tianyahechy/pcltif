@@ -19,396 +19,8 @@ recimage_pairs::~recimage_pairs()
 	_pointSet.clear();
 	_totalRasterVec.clear();
 }
-/*
-//输入像素分辨率以及该块点云，将该部分点云输出为.tif
-bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block & block)
-{
-	//判断点云大小是否为空,空则返回false
-	SOE_32S pt_size = _point_clound[block.block_index].size();
-	if ( pt_size == 0 )
-	{
-		return false;
-	}
-
-	//确定该块点云的范围
-	soe_envelope clound_extent;
-	clound_extent.init(_point_clound[block.block_index]);
-
-	//5*5块形成一组,计算每组的像素分辨率
-	SOE_64F pt_win_size = dtm_cell_size * 5;
-	//计算该块点云每行每列各有多少组，以及共多少组
-	SOE_32S grid_col = static_cast<SOE_32S> ((clound_extent.getMaxX() - clound_extent.getMinX()) / pt_win_size) + 1;
-	SOE_32S grid_row = static_cast<SOE_32S> ((clound_extent.getMaxX() - clound_extent.getMinX()) / pt_win_size) + 1;
-	SOE_32S grid_size = grid_col * grid_row;
-	
-	//给每组的点数和id创建空间，并设定初值为0
-	SOE_32S * grid_pt_num = new SOE_32S[grid_size];
-	SOE_32S ** grid_pt_ids = new SOE_32S*[grid_size];
-	memset(grid_pt_num, 0, sizeof(SOE_32S) *grid_size);
-	memset(grid_pt_ids, 0, sizeof(SOE_32S*)*grid_size);
-
-	SOE_32S grid_x, grid_y, grid_pos;
-
-	//计算点云各点在各组的xy相对坐标,并将该相对坐标的个数+1
-	for (size_t i = 0; i < pt_size; i++)
-	{
-		grid_x = static_cast<SOE_32S> ((_point_clound[block.block_index][i].x -
-			clound_extent.getMinX()) / pt_win_size);
-		grid_y = static_cast<SOE_32S> ((_point_clound[block.block_index][i].y -
-			clound_extent.getMinY()) / pt_win_size);
-		grid_pt_num[grid_y*grid_col + grid_x]++;
-	}
-
-	//对每组的id进行分配空间
-	for (size_t i = 0; i < grid_size; i++)
-	{
-		grid_pt_ids[i] = new SOE_32S[grid_pt_num[i]];
-		memset(grid_pt_ids[i], 0, sizeof(SOE_32S) * grid_pt_num[i]);
-	}
-
-	//对各个相对坐标的数组置为0
-	memset(grid_pt_num, 0, sizeof(SOE_32S) * grid_size);	
-	//计算点云各点在各组的xy相对坐标,赋值序号给该坐标，
-	//并将该相对坐标的个数+1
-	for (size_t i = 0; i < pt_size; i++)
-	{
-		grid_x = static_cast<SOE_32S> ((_point_clound[block.block_index][i].x -
-			clound_extent.getMinX()) / pt_win_size);
-		grid_y = static_cast<SOE_32S> ((_point_clound[block.block_index][i].y -
-			clound_extent.getMinY()) / pt_win_size);
-		grid_pos = grid_y*grid_col + grid_x;
-		grid_pt_ids[grid_pos][grid_pt_num[grid_pos]] = i;
-		grid_pt_num[grid_pos]++;
-	}
-
-	//计算图像分辨率（宽度高度）
-	SOE_32S dtm_width = static_cast<SOE_32S> ((clound_extent.getMaxX() - clound_extent.getMinX()) / dtm_cell_size);
-	SOE_32S dtm_height = static_cast<SOE_32S> ((clound_extent.getMaxY() - clound_extent.getMinY()) / dtm_cell_size);
-	
-	//初始化图像的范围
-	soe_envelope dtm_extent;
-	dtm_extent.init(clound_extent.getMinX(),
-		clound_extent.getMinX() + dtm_width * dtm_cell_size,
-		clound_extent.getMinY(),
-		clound_extent.getMinY() + dtm_height * dtm_cell_size
-		);
-
-	//设置图像的信息（宽，高，灰度，浮点数)
-	SOE_IMG_INFO dsm_file_info;
-	dsm_file_info.width = dtm_width;
-	dsm_file_info.height = dtm_height;
-	dsm_file_info.channel_num = 1;
-	dsm_file_info.data_type = BT_32F;
-
-	//删除指定文件
-	std::string dtm_path = block.block_dem_path;
-	std::string strname = dtm_path.substr(0, dtm_path.find_last_of("."));
-	std::string poly_name = strname + "_valid.polygon";
-	remove(poly_name.c_str());
-
-	//创建.tif,设置范围和投影
-	ImgCore dtm_dataset;
-	if ( !dtm_dataset.Create(dtm_path.c_str(), &dsm_file_info))
-	{
-		return false;
-	}
-	dtm_dataset.SetExtent(&dtm_extent);
-	dtm_dataset.SetProjection(_wkt.c_str());
-
-	std::vector<SOE_32S> find_ids;
-	SOE_64F x, y;
-	//为.tif创建空间并初始化为0
-	SOE_32F * result_data = new SOE_32F[dtm_width * dtm_height];
-	memset(result_data, _null_value, sizeof(SOE_32F) * dtm_width * dtm_height);
-	
-	for (SOE_16U i = 0; i < dtm_height; i++)
-	{
-		y = dtm_extent.getMaxY() - i * dtm_cell_size - dtm_cell_size / 2.0;
-		for (SOE_16U j = 0; j < dtm_width; j++)
-		{
-			//遍历各点（从左下角第一个网格中心开始操作），以该点为中心3*3,将各个id加入find_ids,并计数+1
-			x = dtm_extent.getMinX() + j * dtm_cell_size + dtm_cell_size / 2.0;
-			SOE_32S grid_x2 = static_cast<SOE_32S> ((x - clound_extent.getMinX()) / pt_win_size);
-			SOE_32S grid_y2 = static_cast<SOE_32S> ((y - clound_extent.getMinY()) / pt_win_size);
-			SOE_32S find_iter = 0;
-			find_ids.clear();
-			for (SOE_32S m = -1; m < 2; m++)
-			{
-				grid_y = grid_y2 + m;
-				for (SOE_32S n = -1; n < 2; n++)
-				{
-					grid_x = grid_x2 + n;
-					grid_pos = grid_y * grid_col + grid_x;
-					if ( grid_x < 0 ||
-						grid_x >= grid_col ||
-						grid_y < 0 ||
-						grid_y >= grid_row
-						)
-					{
-						continue;
-					}
-
-					for (SOE_32S k = 0; k < grid_pt_num[grid_pos]; k++)
-					{
-						find_ids.push_back(grid_pt_ids[grid_pos][k]);
-						find_iter++;
-					}
-				}
-			}
-			SOE_64F x_dis, y_dis, xy_dis[find_win_size];
-			if ( find_iter < find_win_size)
-			{
-				result_data[i*dtm_width + j] = _null_value;
-				continue;
-			}
-
-			//由小到大排序x_dis，并将findids的对应值交换,并赋值给xy_dis
-			for (SOE_32S m = 0; m < find_win_size; m++)
-			{
-				x_dis = (_point_clound[block.block_index][find_ids[m]].x - x) *
-					(_point_clound[block.block_index][find_ids[m]].x - x) +
-					(_point_clound[block.block_index][find_ids[m]].y - y) *
-					(_point_clound[block.block_index][find_ids[m]].y - y);
-				for (SOE_32S n = m; n < find_iter; n++)
-				{
-					y_dis = (_point_clound[block.block_index][find_ids[n]].x - x) *
-						(_point_clound[block.block_index][find_ids[n]].x - x) +
-						(_point_clound[block.block_index][find_ids[n]].y - y) *
-						(_point_clound[block.block_index][find_ids[n]].y - y);
-					if ( x_dis > y_dis )
-					{
-						x_dis = y_dis;
-						grid_pos = find_ids[m];
-						find_ids[m] = find_ids[n];
-						find_ids[n] = grid_pos;
-					}
-				}
-				xy_dis[m] = x_dis;
-			}
-
-			SOE_64F result_height = 0.0, dis_total = 0.0;
-			//逐段累加高度，计算均值为最终高度
-			if ( xy_dis[0] == 0 )
-			{
-				result_height = _point_clound[block.block_index][find_ids[0]].z;
-				dis_total = 1;
-			}
-			else
-			{
-				result_height = 0.0;
-				dis_total = 0.0;
-				for (SOE_32S m = 0; m < find_win_size; m++)
-				{
-					result_height += _point_clound[block.block_index][find_ids[m]].z * 1.0 / xy_dis[m];
-					dis_total += 1.0 / xy_dis[m];
-				}
-			}
-			result_height /= dis_total;
-			result_data[i*dtm_width + j] = static_cast<SOE_32F>(result_height);
-		}
-	}
-	//写入数据
-	dtm_dataset.DataWriteBand(1, 1, 1, dtm_width, dtm_height, result_data);
-
-	//清理资源
-	delete[] result_data;
-	result_data = NULL;
-
-	dtm_dataset.Close();
-	delete[] grid_pt_num;
-	for (size_t i = 0; i < grid_size; i++)
-	{
-		delete[] grid_pt_ids[i];
-	}
-	delete[] grid_pt_ids;
-	return true;
-}
-*/
-/*
-//输入像素分辨率以及该块点云，将这部分点云输出为.tif
-bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block& block)
-{
-	//判断点云大小是否为空，空则返回false
-	SOE_32S pt_size = _point_clound[block.block_index].size();
-	if ( pt_size == 0 )
-	{
-		return false;
-	}
-	//确定该块点云范围
-	soe_envelope clound_extent;
-	clound_extent.init(_point_clound[block.block_index]);
-	//5*5个点一组，分块
-	SOE_64F pt_win_size = dtm_cell_size * 5;
-	//计算该点云按组分，有多少行多少列，以及共多少组
-	SOE_32S grid_col = static_cast<SOE_32S>((clound_extent.getMaxX() -
-		clound_extent.getMinX()) / pt_win_size) + 1;
-	SOE_32S grid_row = static_cast<SOE_32S>((clound_extent.getMaxX() -
-		clound_extent.getMinX()) / pt_win_size) + 1;
-	SOE_32S grid_size = grid_col * grid_row;
-
-	//对每组的点数计数（该分组有多少点）和id创建空间，,并设定初值为0
-	SOE_32S * grid_pt_num = new SOE_32S[grid_size];
-	SOE_32S **grid_pt_ids = new SOE_32S*[grid_size];
-	memset(grid_pt_num, 0, sizeof(SOE_32S) * grid_size);
-	memset(grid_pt_ids, 0, sizeof(SOE_32S*) * grid_size);
-
-	//遍历该块点云，计算各点在哪个分组，并将该分组点的个数+1
-	for (size_t i = 0; i < pt_size; i++)
-	{
-		SOE_32S grid_x = static_cast<SOE_32S> ((_point_clound[block.block_index][i].x - clound_extent.getMinX()) / pt_win_size);
-		SOE_32S grid_y = static_cast<SOE_32S> ((_point_clound[block.block_index][i].y - clound_extent.getMinY()) / pt_win_size);
-		grid_pt_num[grid_y * grid_col + grid_x]++;
-	}
-
-	//按照分组，对点云的各序号分配空间
-	for (size_t i = 0; i < grid_size; i++)
-	{
-		grid_pt_ids[i] = new SOE_32S[grid_pt_num[i]];
-		memset(grid_pt_ids[i], 0, sizeof(SOE_32S) * grid_pt_num[i]);
-	}
-	//对每组的点数数组清0
-	memset(grid_pt_num, 0, sizeof(SOE_32S) * grid_size);
-	
-	//对每个分组的点数分配空间，以及对各个分组中各点的id进行赋值，这个id指的是在点云中的序号。
-	for (size_t i = 0; i < pt_size; i++)
-	{
-		SOE_32S grid_x = static_cast<SOE_32S> ((_point_clound[block.block_index][i].x - clound_extent.getMinX()) / pt_win_size);
-		SOE_32S grid_y = static_cast<SOE_32S> ((_point_clound[block.block_index][i].y - clound_extent.getMinY()) / pt_win_size);
-		SOE_32S grid_pos = grid_y * grid_col + grid_x;
-		grid_pt_ids[grid_pos][grid_pt_num[grid_pos]] = i;
-		grid_pt_num[grid_pos]++;
-	}
-
-	//计算图像分辨率（XY方向）,初始化坐标范围
-	SOE_32S dtm_width = static_cast<SOE_32S> ((clound_extent.getMaxX() - clound_extent.getMinX()) / dtm_cell_size);
-	SOE_32S dtm_height = static_cast<SOE_32S> ((clound_extent.getMaxY() - clound_extent.getMinY()) / dtm_cell_size);
-	soe_envelope dtm_extent;
-	dtm_extent.init(clound_extent.getMinX(),
-		clound_extent.getMinX() + dtm_width * dtm_cell_size,
-		clound_extent.getMinY(),
-		clound_extent.getMinY() + dtm_height * dtm_cell_size
-		);
-
-	//设置图像的宽高，单通道和浮点数类型
-	SOE_IMG_INFO dsm_file_info;
-	dsm_file_info.width = dtm_width;
-	dsm_file_info.height = dtm_height;
-	dsm_file_info.channel_num = 1;
-	dsm_file_info.data_type = BT_32F;
-
-	//删除相应文件 
-	std::string dtm_path = block.block_dem_path;
-	std::string strname = dtm_path.substr(0, dtm_path.find_last_of("."));
-	std::string ploy_name = strname + "_valid.polygon";
-	remove(ploy_name.c_str());
-
-	//创建影像
-	ImgCore dtm_dataSet;
-	if (!dtm_dataSet.Create(dtm_path.c_str(), &dsm_file_info))
-	{
-		return false;
-	}
-	dtm_dataSet.SetExtent(&dtm_extent);
-	dtm_dataSet.SetProjection(_wkt.c_str());
-	
-	//为影像创建空间，初始化为0
-	std::vector<SOE_32S> find_ids;
-	SOE_64F x, y;
-	SOE_32F * result_data = new SOE_32F[dtm_width * dtm_height];
-	memset(result_data, _null_value, sizeof(SOE_32F) * dtm_width * dtm_height);
-	for (SOE_16U i = 0; i < dtm_height; i++)
-	{
-		y = dtm_extent.getMaxY() - i * dtm_cell_size - dtm_cell_size / 2.0;
-		for (SOE_16U j = 0; j < dtm_width; j++)
-		{
-			//从左上角向右下遍历
-			x = dtm_extent.getMinX() + j * dtm_cell_size + dtm_cell_size / 2.0;
-
-			//计算该点在x,y方向的第几组
-			SOE_32S grid_x2 = static_cast<SOE_32S>((x - clound_extent.getMinX()) / pt_win_size);
-			SOE_32S grid_y2 = static_cast<SOE_32S>((y - clound_extent.getMinY()) / pt_win_size);
-
-			SOE_32S find_iter = 0;
-			find_ids.clear();
-			//以该点为中心遍历3*3组
-			for ( SOE_32S m = -1; m < 2; m++)
-			{
-				SOE_32S grid_y = grid_y2 + m;
-				for (SOE_32S n = -1; n < 2; n++)
-				{
-					SOE_32S grid_x = grid_x2 + n;
-					SOE_32S grid_pos = grid_y * grid_col + grid_x;
-					if (grid_x < 0 ||
-						grid_x >= grid_col ||
-						grid_y < 0 ||
-						grid_y >= grid_row
-						)
-					{
-						continue;
-					}
-
-					//把这3*3的id序号加入find_ids数组
-					for (SOE_32S k = 0; k < grid_pt_num[grid_pos]; k++)
-					{
-						find_ids.push_back(grid_pt_ids[grid_pos][k]);
-						find_iter++;
-					}
-				}
-			}
-			SOE_64F x_dis, y_dis, xy_dis[find_win_size];
-			if ( find_iter < find_win_size)
-			{
-				result_data[i * dtm_width + j] = _null_value;
-				continue;
-			}
-
-			for (SOE_32S m = 0; m < find_wind_size; m++)
-			{
-				SOE_64F x_dis = (_point_clound[block.block_index][find_ids[m]].x - x) *
-					(_point_clound[block.block_index][find_ids[m]].x - x) +
-					(_point_clound[block.block_index][find_ids[m]].y - y) *
-					(_point_clound[block.block_index][find_ids[m]].y - y);
-				for (SOE_32S n = m; n < find_iter; n++)
-				{
-
-					SOE_64F y_dis = (_point_clound[block.block_index][find_ids[n]].x - x) *
-						(_point_clound[block.block_index][find_ids[n]].x - x) +
-						(_point_clound[block.block_index][find_ids[n]].y - y) *
-						(_point_clound[block.block_index][find_ids[n]].y - y);
-					if ( x_dis > y_dis )
-					{
-						x_dis = y_dis;
-						SOE_32S grid_pos = find_ids[m];
-						find_ids[m] = find_ids[n];
-						find_ids[n] = grid_pos;
-					}
-				}
-				xy_dis[m] = x_dis;
-			}
-			SOE_64F result_height = 0.0, dis_total = 1;
-			if ( xy_dis[0] = 0 )
-			{
-				result_height = _point_clound[block.block_index][find_ids[0]].z;
-				dis_total = 1;
-			}
-			else
-			{
-				result_height = 0;
-				dis_total = 0;
-				for (SOE_32S m = 0; m < find_win_size; m++)
-				{
-					result_height += _point_clound[block.block_index][find_ids[m]].z * 1.0 / xy_dis[m];
-					dis_total += 1.0 / xy_dis[m];
-				}
-			}
-		}
-	}
-
-}
-*/
-
 //设置点集
-void recimage_pairs::setPointSet(pt3Set dataSet)
+void recimage_pairs::setPointSet(pt3Set dataSet, int startXID, int startYID, int widthRoi, int heightRoi)
 {
 	//首先判断数据是否为空，空则返回
 	int theSize = dataSet.size();
@@ -424,8 +36,24 @@ void recimage_pairs::setPointSet(pt3Set dataSet)
 	for (; iterCurPt != iterEndPt; iterCurPt++)
 	{
 		Pt3 thePt = iterCurPt->second;
-		_pointSet.insert(pt3Pair(id, thePt));
-		id = id + 1;
+		float theX = thePt.x();
+		float theY = thePt.y();
+		float theZ = thePt.z();
+
+		//如果id在一定范围内，则输入
+		int xID = (theX - _topLeftX) / _xResolution;
+		int yID = (theY - _topLeftY) / _yResolution;
+		if ( xID >= startXID && 			
+			xID < (startXID + widthRoi) && 
+			yID >= startYID &&
+			yID < (startYID + heightRoi)
+			
+			)
+		{
+			_pointSet.insert(pt3Pair(id, thePt));
+			id = id + 1;
+		}
+
 	}
 }
 
@@ -570,26 +198,6 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 	soe_envelope dtm_extent;
 	dtm_extent.init(clound_extent.getMinX(), clound_extent.getMinX() + dtm_width * dtm_cell_size, clound_extent.getMinY(), clound_extent.getMinY() + dtm_height * dtm_cell_size);
 
-	//SOE_IMG_INFO dsm_file_info;
-	//dsm_file_info.width = dtm_width;
-	//dsm_file_info.height = dtm_height;
-	//dsm_file_info.channel_num = 1;
-	//dsm_file_info.data_type = BT_32F;
-
-	//std::string dtm_path = block.block_dem_path;
-	//std::string strname = dtm_path.substr(0, dtm_path.find_last_of("."));
-	//std::string ploy_name = strname + "_vaild.polygon";
-	//remove(ploy_name.c_str());
-	//std::string dtm_path = "test";
-
-	//ImgCore dtm_dataset;
-	//if (!dtm_dataset.Create(dtm_path.c_str(), &dsm_file_info))
-	//	return false;
-
-	//dtm_dataset.SetExtent(&dtm_extent);
-	//dtm_dataset.SetProjection(_wkt.c_str());
-
-
 	std::vector<SOE_32S>find_ids;
 	SOE_64F x, y;
 
@@ -701,13 +309,6 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 		}
 	}
 
-	
-	//dtm_dataset.DataWriteBand(1, 1, 1, dtm_width, dtm_height, result_data);
-
-	//delete[]result_data;
-	//result_data = NULL;
-
-
 	//dtm_dataset.Close();
 	delete[]grid_pt_num;
 	for (i = 0; i != grid_size; ++i)
@@ -717,4 +318,11 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 	delete[]grid_pt_ids;
 
 	return true;
+}
+
+
+//得到点集
+pt3Set recimage_pairs::getPointSet()
+{
+	return _pointSet;
 }

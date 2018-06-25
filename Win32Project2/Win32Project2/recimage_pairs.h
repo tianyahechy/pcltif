@@ -19,8 +19,10 @@ public:
 	recimage_pairs();
 	~recimage_pairs();
 public:
-	//设置点集
-	void setPointSet(pt3Set dataSet);
+	//得到点集
+	pt3Set getPointSet();
+	//设置点集,起始点和终点,以及宽高
+	void setPointSet(pt3Set dataSet,int startXID, int startYID, int widthRoi, int heightRoi );
 	//分块处理
 	void processBySegment(int sizeofSegment);
 	//将点云集合分割成相应的数组
