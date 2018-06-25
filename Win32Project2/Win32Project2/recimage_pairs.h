@@ -4,7 +4,7 @@
 #include "ImgCore.h"
 
 #define  BT_32F GDT_Float32
-#define find_win_size 30
+#define find_win_size 5
 
 //µãÔÆ·Ö¿é
 struct epi_block        
@@ -55,9 +55,12 @@ private:
 	double _difftime12; 
 	double _difftime23;
 	double _difftime34;
+	double _difftime56;
 	time_t time1;
 	time_t time2;
 	time_t time3;
 	time_t time4;
+	time_t time5;
+	time_t time6;
 };
 

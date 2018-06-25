@@ -14,6 +14,7 @@ recimage_pairs::recimage_pairs()
 	_difftime12 = 0;
 	_difftime23 = 0;
 	_difftime34 = 0;
+	_difftime56 = 0;
 }
 
 recimage_pairs::~recimage_pairs()
@@ -107,6 +108,7 @@ void recimage_pairs::processBySegment(int segmentSize)
 	std::cout << "_difftime12 = " << _difftime12 << std::endl;
 	std::cout << "_difftime23 = " << _difftime23 << std::endl;
 	std::cout << "_difftime34 = " << _difftime34 << std::endl;
+	std::cout << "_difftime56 = " << _difftime56 << std::endl;
 }				  
 //将点云集合分割成相应的数组
 void recimage_pairs::splitVectorFromPointCloud(pt3Set pointCloudDataSet,
@@ -227,7 +229,8 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 		int yID = (y - _topLeftY) / _yResolution;
 		for (SOE_16U j = 0; j != dtm_width; ++j)
 		{
-			time(&time2);
+			
+			time(&time5);
 			x = dtm_extent.getMinX() + j * dtm_cell_size + dtm_cell_size / 2.0;
 			int xID = ( x - _topLeftX) / _xResolution;
 
@@ -238,10 +241,12 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 
 			SOE_32S find_iter = 0;
 			find_ids.clear();
-			for (SOE_32S m = -1; m != 2; ++m)
+			//for (SOE_32S m = -1; m != 2; ++m)
+			for (SOE_32S m = 0; m != 1; ++m)
 			{
 				grid_y = grid_y2 + m;
-				for (SOE_32S n = -1; n != 2; ++n)
+				for (SOE_32S n = 0; n != 1; ++n)
+				//for (SOE_32S n = -1; n != 2; ++n)
 				{
 					grid_x = grid_x2 + n;
 					grid_pos = grid_y * grid_col + grid_x;
@@ -257,6 +262,10 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 
 				}
 			}
+			time(&time6);
+			_difftime56 += difftime(time6, time5);
+			time(&time2);
+			
 			//std::cout << "find_iter = " << find_iter << std::endl;
 			double x_dis, y_dis, xy_dis[find_win_size];
 
