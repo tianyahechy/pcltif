@@ -28,7 +28,7 @@ int main()
 	//通过读入点云写tif
 
 	std::string strInputPointCloudName1 = "E:\\DEM-2013.pcd";
-	std::string strOutPutTifName1 = "E:\\test\\tif\\test10w.tif";
+	std::string strOutPutTifName1 = "E:\\test\\tif\\test4w.tif";
 	std::string strInputPointCloudName2 = "E:\\DEM-2016.pcd";
 	std::string strOutPutTifName2 = "E:\\test\\tif\\DEM-2016.tif";
 	double xResolution = 10;

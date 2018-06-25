@@ -50,5 +50,14 @@ private:
 	double _topLeftY;
 	int _null_value;
 	std::string _wkt;
+
+	//ºÄ·ÑÊ±¼ä
+	double _difftime12; 
+	double _difftime23;
+	double _difftime34;
+	time_t time1;
+	time_t time2;
+	time_t time3;
+	time_t time4;
 };
 

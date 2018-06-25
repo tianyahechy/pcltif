@@ -616,7 +616,7 @@ namespace util
 	}
 
 	//通过读入tif,写点云
-	void writePointCloudFromTif(const char* strInputTifName, const char* strOutPutPointCloudName, bool bOrganized)
+	void writePointCloudFromTif(const char* strInputTifName, const char* strOutPutPointCloudName,  float invalidValue, bool bOrganized)
 	{
 
 		int xSize1 = 0;
@@ -643,7 +643,7 @@ namespace util
 				double x = thePt.x();
 				double y = thePt.y();
 				double z = thePt.z();
-				if (z != 0)
+				if (z != invalidValue)
 				{
 					pcl::PointXYZ thePt;
 					thePt.x = x;
@@ -818,6 +818,7 @@ namespace util
 		std::cout << "总共耗时" << allTime << std::endl;
 		rastervec.clear();
 		rastervecUpdate.clear();
+		
 		delete thePCLTif1;
 		delete theRec;
 

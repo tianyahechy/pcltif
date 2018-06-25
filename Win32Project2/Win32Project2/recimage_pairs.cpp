@@ -11,6 +11,9 @@ recimage_pairs::recimage_pairs()
 	_topLeftY = 0;
 	_point_clound.clear();
 	_pointSet.clear();
+	_difftime12 = 0;
+	_difftime23 = 0;
+	_difftime34 = 0;
 }
 
 recimage_pairs::~recimage_pairs()
@@ -87,7 +90,13 @@ void recimage_pairs::processBySegment(int segmentSize)
 	epi_blockVector.clear();
 	_point_clound.clear();
 	std::cout << "总点数:" << _pointSet.size() << std::endl;
+	time_t splitTimeBefor;
+	time(&splitTimeBefor);
 	this->splitVectorFromPointCloud(_pointSet, segmentSize, epi_blockVector, _point_clound);
+	time_t splitTimeAfter;
+	time(&splitTimeAfter);
+	double difsplit = difftime(splitTimeAfter, splitTimeBefor);
+	std::cout << "从点集分割需要时间" << difsplit << std::endl;
 	int sizeofCloudVector = epi_blockVector.size();
 	//处理每部分点云
 	for (int i = 0; i < sizeofCloudVector; i++)
@@ -95,7 +104,10 @@ void recimage_pairs::processBySegment(int segmentSize)
 		epi_block theEpiBlock = epi_blockVector[i];
 		this->dtm_resample(_xResolution, theEpiBlock);
 	}
-}
+	std::cout << "_difftime12 = " << _difftime12 << std::endl;
+	std::cout << "_difftime23 = " << _difftime23 << std::endl;
+	std::cout << "_difftime34 = " << _difftime34 << std::endl;
+}				  
 //将点云集合分割成相应的数组
 void recimage_pairs::splitVectorFromPointCloud(pt3Set pointCloudDataSet,
 	int segmentSize,
@@ -149,6 +161,7 @@ void recimage_pairs::splitVectorFromPointCloud(pt3Set pointCloudDataSet,
 //输入像素分辨率和相应部分的点云（可拆分成不同序号的点云）
 bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 {
+	time(&time1);
 	SOE_32S pt_size = _point_clound[block.block_index].size();
 	//std::cout << "第" << block.block_index << "块个数为" << pt_size;
 	if (pt_size == 0)
@@ -193,6 +206,9 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 		grid_pt_num[grid_pos]++;
 	}
 
+	time(&time2);
+	_difftime12 += difftime(time2, time1);
+
 	SOE_32S dtm_width = static_cast<SOE_32S>((clound_extent.getMaxX() - clound_extent.getMinX()) / dtm_cell_size);
 	SOE_32S dtm_height = static_cast<SOE_32S>((clound_extent.getMaxY() - clound_extent.getMinY()) / dtm_cell_size);
 	soe_envelope dtm_extent;
@@ -211,6 +227,7 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 		int yID = (y - _topLeftY) / _yResolution;
 		for (SOE_16U j = 0; j != dtm_width; ++j)
 		{
+			time(&time2);
 			x = dtm_extent.getMinX() + j * dtm_cell_size + dtm_cell_size / 2.0;
 			int xID = ( x - _topLeftX) / _xResolution;
 
@@ -271,6 +288,10 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 				xy_dis[m] = x_dis;
 
 			}
+
+			time(&time3);
+			_difftime23 += difftime(time3, time2);
+			
 			double result_height = 0.0, dis_total = 0.0;
 
 			if (xy_dis[0] == 0)
@@ -306,6 +327,12 @@ bool recimage_pairs::dtm_resample(SOE_64F dtm_cell_size, epi_block &block)
 			Pt3 thePt(theX, theY, theZ);
 			_totalRasterVec[yID][xID] = thePt;
 
+			time(&time4);
+			_difftime34 += difftime(time4, time3);
+
+			//std::cout << "_difftime12 = " << _difftime12 << std::endl;
+			//std::cout << "_difftime23 = " << _difftime23 << std::endl;
+			//std::cout << "_difftime34 = " << _difftime34 << std::endl;
 		}
 	}
 

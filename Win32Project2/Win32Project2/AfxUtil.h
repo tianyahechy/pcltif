@@ -49,7 +49,7 @@ namespace util
 
 	//通过读入tif,写点云
 	//bOrganized：是否是有序点云，true为有序，false为无序点云
-	void writePointCloudFromTif(const char* strInputTifName, const char* strOutPutPointCloudName, bool bOrganized = false);
+	void writePointCloudFromTif(const char* strInputTifName, const char* strOutPutPointCloudName, float invalidValue, bool bOrganized = false);
 	//通过读入点云写tif
 	void writeTifFromPointCloud(const char* strInputPointCloudName, const char* strOutPutTifName, double xResolution, double yResolution, int bandSize = 1 );
 	//通过读入点云分块写tif
