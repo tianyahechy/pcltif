@@ -64,6 +64,9 @@ void siftProcess::processAll()
 	coliners1InOpenCV.clear();
 	std::vector<Pt3> coliners2InOpenCV;
 	coliners2InOpenCV.clear();
+	//核心粗配准矩阵Vector
+	std::vector<Eigen::Matrix4f> coreRoughMatrixVec;
+	coreRoughMatrixVec.clear();
 
 	for (size_t j = 0; j < zoneVecVec1.size(); j++)
 	{
@@ -88,184 +91,174 @@ void siftProcess::processAll()
 				continue;
 			}
 
-			//将所有内点的三维坐标加入对应点对中
+			//将所有内点的三维坐标加入对应点对中(第一条路，先内点集合再计算矩阵）
 			for (size_t k = 0; k < colinersOfTheZone1Vec.size(); k++)
 			{
 				coliners1InOpenCV.push_back(colinersOfTheZone1Vec[k]);
 				coliners2InOpenCV.push_back(colinersOfTheZone2Vec[k]);
 			}
 
+			//第二条路，先计算矩阵再拟和
+			//1,根据比例再过滤一次点对
+			float ratioFilter = 0.3;
+			std::vector<Pt3>filterColinerPt3Vec1;
+			filterColinerPt3Vec1.clear();
+			std::vector<Pt3> filterColinerPt3Vec2;
+			filterColinerPt3Vec2.clear();
+			this->filterColiner(colinersOfTheZone1Vec, colinersOfTheZone2Vec, filterColinerPt3Vec1, filterColinerPt3Vec2, ratioFilter);
 			colinersOfTheZone1Vec.clear();
 			colinersOfTheZone2Vec.clear();
+			//根据点对来计算核心粗配准矩阵
+			Eigen::Matrix4f coreRoughMatrix = this->getCoreRoughMatrixFromColinerVec(filterColinerPt3Vec1, filterColinerPt3Vec2);
+			coreRoughMatrixVec.push_back(coreRoughMatrix);
 
 		}
 	}
-	//2.0再过滤一次点对
+
+	//1,根据比例再过滤一次点对
 	float ratioFilter = 0.3;
-	_corlinerPointVec1InPCL.clear();
-	_corlinerPointVec2InPCL.clear();
-	this->filterColiner(coliners1InOpenCV, coliners2InOpenCV, _corlinerPointVec1InPCL, _corlinerPointVec2InPCL, ratioFilter);
-	coliners1InOpenCV.clear();
-	coliners2InOpenCV.clear();
-	FILE * fp = fopen("e:\\test\\coliner.txt", "w");
-	fprintf(fp, "firstID        secondID                第一个坐标                       第二个坐标                            \n");
+	std::vector<Pt3>filterColinerPt3Vec1;
+	filterColinerPt3Vec1.clear();
+	std::vector<Pt3> filterColinerPt3Vec2;
+	filterColinerPt3Vec2.clear();
+	this->filterColiner(coliners1InOpenCV, coliners2InOpenCV, filterColinerPt3Vec1, filterColinerPt3Vec2, ratioFilter);
+	//第一种办法计算核心粗配准矩阵
+	Eigen::Matrix4f firstRoughMatrix = this->getCoreRoughMatrixFromColinerVec(filterColinerPt3Vec1, filterColinerPt3Vec2);
+	//第二种计算拟和矩阵
+	Eigen::Matrix4f secondRoughMatrix = this->getAverageMatrix(coreRoughMatrixVec);
+	//对两个点云粗配准，并计算出差点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr srcCloud = this->getPointCloudFrom3dVec(filterColinerPt3Vec1);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr destCloud = this->getPointCloudFrom3dVec(filterColinerPt3Vec2);
 
-	for (size_t i = 0; i < _corlinerPointVec1InPCL.size(); i++)
-	{
-		int idFirst = i;
-		int idSecond = i;
-		
-		float firstPtX = _corlinerPointVec1InPCL[i].x();
-		float firstPtY = _corlinerPointVec1InPCL[i].y();
-		float secondPtX = _corlinerPointVec2InPCL[i].x();
-		float secondPtY = _corlinerPointVec2InPCL[i].y();
-		float diffX = secondPtX - firstPtX;
-		float diffY = secondPtY - firstPtY;
-	
-		fprintf(fp, "    %-15d%-15d%-10.3f%-25.3f%-10.3f%-25.3f%-10.3f%-25.3f%\n",
-			idFirst, idSecond, firstPtX, firstPtY, secondPtX, secondPtY, diffX, diffY);
-	
-	}
+	pcl::PointCloud<pcl::PointXYZ>::Ptr firstDiffCloud = this->getDiffCloudFromSrcCloudAndDestCloudAndCoreRoughMatrix(srcCloud,
+		destCloud,
+		firstRoughMatrix);
+	pcl::io::savePCDFile("E:\\test\\secondDiffCloud.pcd", *firstDiffCloud);
+	firstDiffCloud->clear();
 
-	fclose(fp);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr secondDiffCloud = this->getDiffCloudFromSrcCloudAndDestCloudAndCoreRoughMatrix(srcCloud,
+		destCloud,
+		secondRoughMatrix);
+	pcl::io::savePCDFile("E:\\test\\secondDiffCloud.pcd", *secondDiffCloud);
+	secondDiffCloud->clear();
 
-	//2计算点对
-	int sizeofColiner = _corlinerPointVec1InPCL.size();
-	_cor_inliers_ptr = this->computeMiniCorrisponces(sizeofColiner);
-	std::cout << "cor_inliers_ptr个数:" << _cor_inliers_ptr->size() << std::endl;
-	FILE *fp_cor_inliers_ptr = fopen("E:\\test\\fp_cor_inliers_ptr2.txt", "w");
-	fprintf(fp_cor_inliers_ptr, "点对序号                         坐标1                            坐标2                            差值\n");
-
-	for (size_t i = 0; i < _cor_inliers_ptr->size(); i++)
-	{
-		int firstID = _cor_inliers_ptr->at(i).index_query;
-		int secondID = _cor_inliers_ptr->at(i).index_match;
-		Pt3 pt1 = _corlinerPointVec1InPCL[i];
-		float x1 = pt1.x();
-		float y1 = pt1.y();
-		float z1 = pt1.z();
-		Pt3 pt2 = _corlinerPointVec2InPCL[i];
-		float x2 = pt2.x();
-		float y2 = pt2.y();
-		float z2 = pt2.z();
-		
-		float diffX = x2 - x1;
-		float diffY = y2 - y1;
-		float diffZ = z2 - z1;
-		fprintf(fp_cor_inliers_ptr, "（%d,%d,)        %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f    %0.6f,%0.6f,%-10.6f  \n",
-			firstID, secondID,x1,y1,z1,x2,y2,z2,diffX,diffY, diffZ);
-
-	}
-	fclose(fp_cor_inliers_ptr);
-
-	//3,从三维坐标转换为点云
-	_colinerCloud1 = this->getPointCloudFrom3dVec(_corlinerPointVec1InPCL);
-	_colinerCloud2 = this->getPointCloudFrom3dVec(_corlinerPointVec2InPCL);
-	pcl::io::savePCDFile("e:\\test\\_colinerCloud1.pcd", *_colinerCloud1);
-	pcl::io::savePCDFile("e:\\test\\_colinerCloud2.pcd", *_colinerCloud2);
-
-	//5，使用pcl的算法得出粗配准矩阵
-	//将源中心点至原点，目标平移同样距离，计算核旋转矩阵，（此时同名点对基本重合）再平移源中点原点这么多距离，到目标点云的位置
-	//计算源内点点云中心点
-	double midCoordX1 = 0;
-	double midCoordY1 = 0;
-	double midCoordZ1 = 0;
-	this->getWeightedmeanMidPointOfTheVec(_corlinerPointVec1InPCL, midCoordX1, midCoordY1, midCoordZ1);
-	//将源中心点至原点，目标平移同样距离
-	std::vector<Pt3> transformColiner1Vec = this->getAjustVecFromVecAndDelta(_corlinerPointVec1InPCL, midCoordX1, midCoordY1, midCoordZ1);
-	std::vector<Pt3> transformColiner2Vec = this->getAjustVecFromVecAndDelta(_corlinerPointVec2InPCL, midCoordX1, midCoordY1, midCoordZ1);
-	//从序列计算得到两个点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerCloud1 = this->getPointCloudFrom3dVec(transformColiner1Vec);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerCloud2 = this->getPointCloudFrom3dVec(transformColiner2Vec);
-	//计算两个内点序列中心坐标，计算核心矩阵
-	_roughMatrix = this->computeRoughMatrix(transformColinerCloud1, transformColinerCloud2, _cor_inliers_ptr);
 	//输出粗配准矩阵
-	std::cout << "输出粗配准核心矩阵" << std::endl;
-	std::cout << _roughMatrix << std::endl;
+	std::cout << "第一种粗配准核心矩阵" << std::endl;
+	std::cout << firstRoughMatrix << std::endl;
+	std::cout << "第二种粗配准核心矩阵" << std::endl;
+	std::cout << secondRoughMatrix << std::endl;
 	// 测试核矩阵
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PCDReader reader;
 	reader.read(_strInputPCDName1, *cloud1);
 	reader.read(_strInputPCDName2, *cloud2);
-	std::vector<Pt3> cloudVec1 = this->getVecFromCloud(cloud1);
-	std::vector<Pt3> cloudVec2 = this->getVecFromCloud(cloud2);
-	//将源中心点至原点，目标平移同样距离
-	//计算源内点点云中心点
-	double midCloudCoordX1 = 0;
-	double midCloudCoordY1 = 0;
-	double midCloudCoordZ1 = 0;
-	this->getMidPointOfTheVec(cloudVec1, midCloudCoordX1, midCloudCoordY1, midCloudCoordZ1);
-
-	//平移源点云至原点
-	std::vector<Pt3> transformCloudVec1 = this->getAjustVecFromVecAndDelta(cloudVec1, midCloudCoordX1, midCloudCoordY1, midCloudCoordZ1);
-	std::vector<Pt3> transformCloudVec2 = this->getAjustVecFromVecAndDelta(cloudVec2, midCloudCoordX1, midCloudCoordY1, midCloudCoordZ1);
-	//从序列计算得到两个点云
-	pcl::PointCloud<pcl::PointXYZ>::Ptr transformCloud1 = this->getPointCloudFrom3dVec(transformCloudVec1);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr transformCloud2 = this->getPointCloudFrom3dVec(transformCloudVec2);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr transformRoughCloud = this->getRoughPointCloudFromMatrix(transformCloud1, _roughMatrix);
-	//平移回去
-	pcl::PointCloud<pcl::PointXYZ>::Ptr roughCloud = this->getCloudFromAdjustCloudAndMinXYZ(transformRoughCloud, 
-		midCloudCoordX1, 
-		midCloudCoordY1, 
-		midCloudCoordZ1);
-	std::vector<Pt3> roughVec = this->getVecFromCloud(roughCloud);
-	int minSize = roughVec.size();
-	if (minSize > cloudVec2.size())
-	{
-		minSize = cloudVec2.size();
-	}
-	pcl::PointCloud<pcl::PointXYZ>::Ptr diffCloud(new pcl::PointCloud<pcl::PointXYZ>);
-	diffCloud->clear();
-	diffCloud->height = 1;
-	diffCloud->width = minSize;
-	diffCloud->resize(diffCloud->width * diffCloud->height);
-	for (size_t i = 0; i < minSize; i++)
-	{
-		Pt3 pt1 = roughVec[i];
-		float x1 = pt1.x();
-		float y1 = pt1.y();
-		float z1 = pt1.z();
-		//Pt3 pt2 = _corlinerPointVec2InPCL[i];
-		Pt3 pt2 = cloudVec2[i];
-		float x2 = pt2.x();
-		float y2 = pt2.y();
-		float z2 = pt2.z();
-
-		float diffX = x2 - x1 ;
-		float diffY = y2 - y1;
-		float diffZ = z2 - z1;
-
-		diffCloud->points[i].x = diffX;
-		diffCloud->points[i].y = diffY;
-		diffCloud->points[i].z = diffZ;
-
-	}
-	pcl::io::savePCDFile("E:\\test\\diff.pcd", *diffCloud);
-	diffCloud->clear();
-
-	time(&endTime);
-	double comsumeTime = difftime(endTime, startTime);
-	std::cout << "总共耗费时间：" << comsumeTime << std::endl;
 
 	//8，清理
-	transformColiner1Vec.clear();
-	transformColiner2Vec.clear();
-	transformCloudVec1.clear();
-	transformCloudVec2.clear();
-	roughVec.clear();
-	cloudVec1.clear();
-	cloudVec2.clear();
-	transformColinerCloud1->clear();
-	transformColinerCloud2->clear();
-	transformRoughCloud->clear();
-	roughCloud->clear();
-	transformCloud1->clear();
-	transformCloud2->clear();
 	cloud1->clear();
 	cloud2->clear();
+	coreRoughMatrixVec.clear();
 }
 
+//对两个点云粗配准，并计算出差点云
+pcl::PointCloud<pcl::PointXYZ>::Ptr siftProcess::getDiffCloudFromSrcCloudAndDestCloudAndCoreRoughMatrix(
+	pcl::PointCloud<pcl::PointXYZ>::Ptr srcCloud,
+	pcl::PointCloud<pcl::PointXYZ>::Ptr destCloud,
+	Eigen::Matrix4f coreRoughMatrix)
+{
+	std::vector<Pt3> srcCloudVec = this->getVecFromCloud(srcCloud);
+	std::vector<Pt3> destCloudVec = this->getVecFromCloud(destCloud);
+	//将源中心点至原点，目标平移同样距离
+	//计算源内点点云中心点
+	double midSrcCloudCoordX = 0;
+	double midSrcCloudCoordY = 0;
+	double midSrcCloudCoordZ = 0;
+	this->getMidPointOfTheVec(srcCloudVec, midSrcCloudCoordX, midSrcCloudCoordY, midSrcCloudCoordZ);
+
+	//平移源点云至原点
+	std::vector<Pt3> transformSrcCloudVec = this->getAjustVecFromVecAndDelta(srcCloudVec, midSrcCloudCoordX, midSrcCloudCoordY, midSrcCloudCoordZ);
+	std::vector<Pt3> transformDestCloudVec = this->getAjustVecFromVecAndDelta(destCloudVec, midSrcCloudCoordX, midSrcCloudCoordY, midSrcCloudCoordZ);
+	//从序列计算得到两个点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformSrcCloud = this->getPointCloudFrom3dVec(transformSrcCloudVec);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformDestCloud = this->getPointCloudFrom3dVec(transformDestCloudVec);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformRoughCloud = this->getRoughPointCloudFromMatrix(transformSrcCloud, coreRoughMatrix);
+	//平移回去
+	pcl::PointCloud<pcl::PointXYZ>::Ptr roughCloud = this->getCloudFromAdjustCloudAndMinXYZ(transformRoughCloud,
+		midSrcCloudCoordX,
+		midSrcCloudCoordY,
+		midSrcCloudCoordZ);
+	//计算差值点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr diffCloud = this->getDiffPointCloud(roughCloud, destCloud);
+	srcCloudVec.clear();
+	destCloudVec.clear();
+	transformSrcCloudVec.clear();
+	transformDestCloudVec.clear();
+	transformSrcCloud->clear();
+	transformDestCloud->clear();
+	transformRoughCloud->clear();
+	roughCloud->clear();
+
+	return diffCloud;
+
+}
+//计算拟和矩阵
+Eigen::Matrix4f siftProcess::getAverageMatrix(std::vector<Eigen::Matrix4f> matrixVector)
+{
+	Eigen::Matrix4f averageMatrix;
+	averageMatrix.setZero();
+	Eigen::Matrix4f totalMatrix;
+	totalMatrix.setZero();
+	//1，判断矩阵是否为空，空则返回0
+	int sizeOfMatrixVector = matrixVector.size();
+	if (sizeOfMatrixVector == 0 )
+	{
+		averageMatrix.setZero();
+		return averageMatrix;
+	}
+	//2，遍历各个矩阵，相加
+	for (size_t i = 0; i < sizeOfMatrixVector; i++)
+	{
+		Eigen::Matrix4f theMatrix = matrixVector[i];
+		totalMatrix += theMatrix;
+	}
+	//3，平均
+	averageMatrix = totalMatrix / sizeOfMatrixVector;
+	//4，返回
+	return averageMatrix;
+}
+//根据点对来计算核心粗配准矩阵
+Eigen::Matrix4f siftProcess::getCoreRoughMatrixFromColinerVec(std::vector<Pt3> colinerPt3Vec1,
+	std::vector<Pt3> colinerPt3Vec2 )
+{
+	//1,计算点对
+	int sizeofColiner = colinerPt3Vec1.size();
+	boost::shared_ptr<pcl::Correspondences> cor_inliers_ptr = this->computeMiniCorrisponces(sizeofColiner);
+	std::cout << "cor_inliers_ptr个数:" << cor_inliers_ptr->size() << std::endl;
+	//2，使用pcl的算法得出粗配准矩阵
+	//将源中心点至原点，目标平移同样距离，计算核旋转矩阵，（此时同名点对基本重合）再平移源中点原点这么多距离，到目标点云的位置
+	//计算源内点点云中心点
+	double midCoordX1 = 0;
+	double midCoordY1 = 0;
+	double midCoordZ1 = 0;
+	this->getWeightedmeanMidPointOfTheVec(colinerPt3Vec1, midCoordX1, midCoordY1, midCoordZ1);
+	//5将源中心点至原点，目标平移同样距离
+	std::vector<Pt3> transformColiner1Vec = this->getAjustVecFromVecAndDelta(colinerPt3Vec1, midCoordX1, midCoordY1, midCoordZ1);
+	std::vector<Pt3> transformColiner2Vec = this->getAjustVecFromVecAndDelta(colinerPt3Vec2, midCoordX1, midCoordY1, midCoordZ1);
+	//6从序列计算得到两个点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerCloud1 = this->getPointCloudFrom3dVec(transformColiner1Vec);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr transformColinerCloud2 = this->getPointCloudFrom3dVec(transformColiner2Vec);
+	colinerPt3Vec1.clear();
+	colinerPt3Vec2.clear();
+	//7计算两个内点序列中心坐标，计算核心矩阵
+	Eigen::Matrix4f coreRoughtMatrix = this->computeRoughMatrix(transformColinerCloud1, transformColinerCloud2, cor_inliers_ptr);
+	cor_inliers_ptr->clear();
+	transformColinerCloud1->clear();
+	transformColinerCloud2->clear();
+	transformColiner1Vec.clear();
+	transformColiner2Vec.clear();
+
+	return coreRoughtMatrix;
+}
 //根据粗配准矩阵得出粗配准点云
 pcl::PointCloud<pcl::PointXYZ>::Ptr siftProcess::getRoughPointCloudFromMatrix(pcl::PointCloud<pcl::PointXYZ>::Ptr inputCloud,
 	Eigen::Matrix4f transformation_matrix)
@@ -497,7 +490,6 @@ Eigen::Matrix4f siftProcess::computeRoughMatrix(pcl::PointCloud<pcl::PointXYZ>::
 {
 	Eigen::Matrix4f theMatrix;
 	pcl::registration::TransformationEstimationSVD<pcl::PointXYZ, pcl::PointXYZ> trans_east;
-	//trans_east.estimateRigidTransformation(*_colinerCloud1, *_colinerCloud2, *_cor_inliers_ptr, _roughMatrix);
 	trans_east.estimateRigidTransformation(*cloud1, *cloud2, *cor, theMatrix);
 	return theMatrix;
 }

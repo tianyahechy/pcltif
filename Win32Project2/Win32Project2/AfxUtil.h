@@ -52,6 +52,14 @@ namespace util
 	void writePointCloudFromTif(const char* strInputTifName, const char* strOutPutPointCloudName, bool bOrganized = false);
 	//通过读入点云写tif
 	void writeTifFromPointCloud(const char* strInputPointCloudName, const char* strOutPutTifName, double xResolution, double yResolution, int bandSize = 1 );
+	//通过读入点云分块写tif
+	void writeTifFromPointCloudBySegment(const char* strInputPointCloudName, 
+		const char* strOutPutTifName, 
+		int sizeofSegment,
+		double xResolution, 
+		double yResolution, 
+		int bandSize = 1);
+
 	//作差
 	void getDifTifBetweenTwoTifs(const char* strInputTifName1, const char* strInputTifName2, const char* strOutPutTifName);
 	//滤波.TIF

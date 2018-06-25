@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include "recimage_pairs.h"
 
 class PCLTif
 {
@@ -36,7 +37,8 @@ public:
 	int getXSize();
 	//得到点云的Y方向像素数
 	int getYSize();
-
+	//得到点云集
+	pt3Set getPointSet();
 private:
 	//根据三角形坐标求外接矩形的坐标极值，4个点的坐标
 	std::vector<Pt2> _getRectanglePt2VectorFromTriangle(std::vector<Pt3> theTrianglePoint);
@@ -66,6 +68,7 @@ private:
 	triangleSet						_myTriangleSet;	//三角化后的三角形集合
 
 private:
-	double								_secondOfTriangle; //单纯三角化时间
+	double							_secondOfTriangle; //单纯三角化时间
+
 };
 

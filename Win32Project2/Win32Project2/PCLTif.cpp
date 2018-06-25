@@ -1,5 +1,6 @@
 #include "PCLTif.h"
 #include "myOpenCL.h"
+
 PCLTif::PCLTif(std::string strFileName, double xResolution, double yResolution, PCLType theType)
 {
 	_rasterVecVec.clear();
@@ -21,7 +22,9 @@ PCLTif::PCLTif(std::string strFileName, double xResolution, double yResolution, 
 		reader.read(strFileName, *cloud);
 
 		std::cout << "总数:" << cloud->points.size() << std::endl;
-		for (size_t i = 0; i < cloud->points.size(); i++)
+		//取十分之一
+		//for (size_t i = 0; i < cloud->points.size(); i++)
+		for (size_t i = cloud->points.size() / 2; i < cloud->points.size() / 2 + 10000; i++)
 		{
 			double x = cloud->points[i].x;
 			double y = cloud->points[i].y;
@@ -30,6 +33,7 @@ PCLTif::PCLTif(std::string strFileName, double xResolution, double yResolution, 
 			Pt3 theVector(Pt3(x, y, z));
 			_pointCloudDataSet.insert(pt3Pair(i, theVector));
 		}
+		cloud->clear();
 	}
 	else if (theType == pointXYZI)
 	{
@@ -46,6 +50,7 @@ PCLTif::PCLTif(std::string strFileName, double xResolution, double yResolution, 
 			Pt3 theVector(Pt3(x, y, z));
 			_pointCloudDataSet.insert(pt3Pair(i, theVector));
 		}
+		cloud->clear();
 	}
 	
 	//根据点云集求点云的细节
@@ -221,7 +226,8 @@ void PCLTif::getTriangleSetFromDataSet()
 
 //输入数据集合，三角化后输出三角形集合(用opencl)
 void PCLTif::getTriangleSetFromDataSetByOpenCL()
-{/*
+{
+	/*
 	//三角化数据集合中的X,Y坐标
 	time_t startTime;
 	time_t endTime;
@@ -671,8 +677,8 @@ void PCLTif::process()
 	std::cout << "给栅格二维赋值时间" << timeofsetRasterPoint2dTime << std::endl;
 	//三角化数据集合中的X,Y坐标,
 	std::cout << "三角化数据集合中的X,Y坐标,重组带Z值的三角形集合" << std::endl;
-	//this->getTriangleSetFromDataSet();
-	this->getTriangleSetFromDataSetByOpenCL();
+	this->getTriangleSetFromDataSet();
+	//this->getTriangleSetFromDataSetByOpenCL();
 	time(&triangulationTime);
 	double timeoftriangulationTime = difftime(triangulationTime, setRasterPoint2dTime);
 	std::cout << "三角化整体时间" << timeoftriangulationTime << std::endl;
@@ -700,4 +706,10 @@ int PCLTif::getXSize()
 int PCLTif::getYSize()
 {
 	return _ySize;
+}
+
+//得到点云集
+pt3Set PCLTif::getPointSet()
+{
+	return _pointCloudDataSet;
 }

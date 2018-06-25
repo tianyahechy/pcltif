@@ -1,5 +1,7 @@
 #include "AfxUtil.h"
 #include "PCLTif.h"
+#include "recimage_pairs.h"
+
 namespace util
 {
 	//通过栅格创建TIF文件
@@ -709,7 +711,15 @@ namespace util
 		double timeofcreateTifTime = difftime(createTifTime, readPointCloudTime);
 		std::cout << "创建.tif文件耗时" << timeofcreateTifTime << std::endl;
 		//处理每块
+
+		time_t prevProcessTime;
+		time_t afterProcessTime;
+		time(&prevProcessTime);
 		thePCLTif1->process();
+		time(&afterProcessTime);
+		double timeofProcess = difftime(afterProcessTime, prevProcessTime);
+		std::cout << "算法耗时" << timeofProcess << std::endl;
+
 		std::vector<std::vector<Pt3>> rastervec = thePCLTif1->getRasterVecVec3();
 
 		//更新网格文件,
@@ -720,6 +730,93 @@ namespace util
 		std::cout << "更新网格文件耗时" << timeofUpdateTif << std::endl;
 		double allTime = difftime(afterUpdateTif, startTime);
 		std::cout << "总共耗时" << allTime << std::endl;
+		rastervec.clear();
+		delete thePCLTif1;
+
+	}
+	//通过读入点云分块写tif
+	//先根据点云大小创建大.tif,再分块处理每块，三角化插值后填充
+	void writeTifFromPointCloudBySegment(const char* strInputPointCloudName,
+		const char* strOutPutTifName,
+		int sizeofSegment,
+		double xResolution,
+		double yResolution,
+		int bandSize )
+	{
+
+		//记录开始时的当前时间和结束时间
+		time_t startTime, endTime;
+		time_t readPointCloudTime;  //读取点云时间
+		time_t triangulationTime;	//三角化时间
+		time_t chazhiTime;			//插值栅格时间
+		time_t createTifTime;		//创建.tiff时间
+		time_t preUpdateTif;		//更新.tiff之前时间
+		time_t afterUpdateTif;		//更新.tiff之后时间
+
+		time(&startTime);
+		PCLTif * thePCLTif1 = new PCLTif(strInputPointCloudName, xResolution, yResolution);
+		time(&readPointCloudTime);
+		double timeofreadPointCloudTime = difftime(readPointCloudTime, startTime);
+		std::cout << "读点云耗时" << timeofreadPointCloudTime << std::endl;
+		//创建网格文件
+		//设置左上角为minx,maxY
+		PCLDetail theDetail = thePCLTif1->getDetailOfthePointCloud();
+		//求X,Y方向的像素个数,
+		double xSizef = abs(theDetail.xDistance / xResolution);
+		double ySizef = abs(theDetail.yDistance / yResolution);
+		//取整
+		int xSize = (int)xSizef;
+		int ySize = (int)ySizef;
+		double topLeftX = theDetail.leftTopX;
+		double topLeftY = theDetail.leftTopY;
+		//生成.tiff文件
+		util::createRasterFile(strOutPutTifName, bandSize, xSize, ySize, xResolution, yResolution, topLeftX, topLeftY);
+		time(&createTifTime);
+		double timeofcreateTifTime = difftime(createTifTime, readPointCloudTime);
+		std::cout << "创建.tif文件耗时" << timeofcreateTifTime << std::endl;
+
+		//初始化空的数组
+		thePCLTif1->getEqualXYZVectorFromDataSet();
+		//得到该空的数组
+		std::vector<std::vector<Pt3>> rastervec = thePCLTif1->getRasterVecVec3();
+		//拆分成各部分点云，分块处理
+		time_t prevProcessTime;
+		time_t afterProcessTime;
+		time(&prevProcessTime);
+		recimage_pairs * theRec = new recimage_pairs();
+		theRec->setPointSet(thePCLTif1->getPointSet());
+		theRec->setResolution(xResolution,yResolution);
+		theRec->setTotalRasterVec(rastervec);
+		theRec->setTopLeft(topLeftX, topLeftY);
+		theRec->processBySegment(sizeofSegment);
+		time(&afterProcessTime);
+		double timeofProcess = difftime(afterProcessTime, prevProcessTime);
+		std::cout << "算法耗时" << timeofProcess << std::endl;
+
+		//返回更新后的数组
+		std::vector<std::vector<Pt3>> rastervecUpdate = theRec->getRasterVecVec3();
+		std::cout << "生成点云" << std::endl;
+		//生成点云
+		std::string testPCDFile = "E:\\test\\tif\\test.pcd";
+		pcl::PointCloud<pcl::PointXYZ>::Ptr testCloud(new pcl::PointCloud<pcl::PointXYZ>);
+		testCloud->clear();
+		testCloud->width = rastervecUpdate.size();
+		testCloud->height = 1;
+		testCloud->resize(testCloud->width * testCloud->height);
+		pcl::io::savePCDFileASCII(testPCDFile, *testCloud);
+		testCloud->clear();
+		//更新网格文件,
+		time(&preUpdateTif);
+		util::UpdateRasterFile(strOutPutTifName, rastervecUpdate);
+		time(&afterUpdateTif);
+		double timeofUpdateTif = difftime(afterUpdateTif, preUpdateTif);
+		std::cout << "更新网格文件耗时" << timeofUpdateTif << std::endl;
+		double allTime = difftime(afterUpdateTif, startTime);
+		std::cout << "总共耗时" << allTime << std::endl;
+		rastervec.clear();
+		rastervecUpdate.clear();
+		delete thePCLTif1;
+		delete theRec;
 
 	}
 

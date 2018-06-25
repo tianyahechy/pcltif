@@ -10,7 +10,7 @@ struct pt3Int
 
 int main()
 {
-	
+	/*
 	//提取矩形区域,以供后面的sift匹配，粗配准
 	int xRoi1 = 2000;
 	int yRoi1 = 2000;
@@ -24,16 +24,20 @@ int main()
 	
 	siftProcess *theProcess = new siftProcess(widthRoi, heightRoi, strInputTifName1, strInputTifName2, strInputPCDName1, strInputPCDName2);
 	theProcess->processAll();
-	
+	*/
 	//通过读入点云写tif
-	/*
-	std::string strInputPointCloudName = "E:\\DEM-2013.pcd";
-	std::string strOutPutTifName = "E:\\test\\tif\\DEM-2013.tif";
+
+	std::string strInputPointCloudName1 = "E:\\DEM-2013.pcd";
+	std::string strOutPutTifName1 = "E:\\test\\tif\\test10w.tif";
+	std::string strInputPointCloudName2 = "E:\\DEM-2016.pcd";
+	std::string strOutPutTifName2 = "E:\\test\\tif\\DEM-2016.tif";
 	double xResolution = 10;
 	double yResolution = -10;
+	int segementSize = 3;
 	//通过读入点云写tif
-	util::writeTifFromPointCloud(strInputPointCloudName.c_str(), strOutPutTifName.c_str(), xResolution, yResolution);
-	*/
+	//util::writeTifFromPointCloud(strInputPointCloudName1.c_str(), strOutPutTifName1.c_str(), xResolution, yResolution);
+	//util::writeTifFromPointCloud(strInputPointCloudName2.c_str(), strOutPutTifName2.c_str(), xResolution, yResolution);
+	util::writeTifFromPointCloudBySegment(strInputPointCloudName1.c_str(), strOutPutTifName1.c_str(), segementSize, xResolution, yResolution);
 	/*
 	//设定一个值
 	int testID = 0;

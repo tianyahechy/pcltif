@@ -148,7 +148,17 @@ public:
 		std::vector<Pt3>& outputVec1, std::vector<Pt3>& outputVec2, 
 		float ratioFilter);
 	//根据比例计算新的过滤后的vec
-	std::vector<diffVec> getSortDiffVec(std::vector<diffVec> inputDiffVec, float ratioFilter);
+	std::vector<diffVec> getSortDiffVec(std::vector<diffVec> inputDiffVec, float ratioFilter);	
+	//根据点对来计算核心粗配准矩阵
+	Eigen::Matrix4f getCoreRoughMatrixFromColinerVec(std::vector<Pt3> colinerPt3Vec1,
+		std::vector<Pt3> colinerPt3Vec2);
+	//计算拟和矩阵
+	Eigen::Matrix4f getAverageMatrix(std::vector<Eigen::Matrix4f> matrixVector);
+	//对两个点云粗配准，并计算出差点云
+	pcl::PointCloud<pcl::PointXYZ>::Ptr getDiffCloudFromSrcCloudAndDestCloudAndCoreRoughMatrix(
+		pcl::PointCloud<pcl::PointXYZ>::Ptr srcCloud,
+		pcl::PointCloud<pcl::PointXYZ>::Ptr destCloud,
+		Eigen::Matrix4f coreRoughMatrix);
 private:
 
 	std::string _strImageFile1Name32bit;				//32位图像1名称
